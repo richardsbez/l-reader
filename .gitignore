@@ -1,0 +1,60 @@
+# --- Compilação e Binários ---
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.out
+*.app
+
+# --- Pastas de Build (Padrão CMake/Qt Creator) ---
+build/
+build-*/
+out/
+bin/
+lib/
+
+# --- Artefatos Gerados pelo Qt (Meta-Object System) ---
+# Arquivos gerados pelo moc, uic e rcc
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+*.qmlc
+*.jsc
+
+# --- CMake ---
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+
+# --- Arquivos de Configuração de IDEs ---
+
+# Qt Creator
+*.user
+*.user.*
+
+# VS Code
+.vscode/
+
+# Neovim / LSP
+.clangd/
+.cache/
+
+# --- Logs e Temporários ---
+*.log
+*.tmp
+*.bak
+*~
+*.swp
+
+# --- Sistema Operacional ---
+.DS_Store
+Thumbs.db

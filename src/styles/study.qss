@@ -1,0 +1,462 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   study.qss  —  l-reader · Modo Estudo
+   Mesma paleta escura do Padrão, com acento verde-amarelo (#CCFF00) para
+   as ferramentas de anotação — igual às canetas do Figma.
+   Painel direito: #242424, rx=10, largura 72px.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Janela principal ────────────────────────────────────────────────────── */
+QMainWindow {
+    background: #181818;
+}
+
+/* ── Menu Bar ────────────────────────────────────────────────────────────── */
+QMenuBar {
+    background: #1E1E1E;
+    color: #757575;
+    border-bottom: 1px solid #242424;
+    font-size: 13px;
+    padding: 0 4px;
+}
+QMenuBar::item {
+    padding: 5px 10px;
+    border-radius: 6px;
+    color: #757575;
+    background: transparent;
+}
+QMenuBar::item:selected { background: #2A2A2A; color: #B3B3B3; }
+QMenuBar::item:pressed  { background: #303030; color: #FFFFFF; }
+
+QMenu {
+    background: #242424;
+    color: #B3B3B3;
+    border: 1px solid #2E2E2E;
+    border-radius: 10px;
+    padding: 4px 0;
+    font-size: 13px;
+}
+QMenu::item         { padding: 7px 28px 7px 16px; border-radius: 6px; margin: 1px 4px; }
+QMenu::item:selected { background: #303030; color: #FFFFFF; }
+QMenu::item:disabled { color: #3A3A3A; }
+QMenu::separator     { height: 1px; background: #2A2A2A; margin: 4px 10px; }
+
+/* ── Toolbar principal ───────────────────────────────────────────────────── */
+QToolBar {
+    background: #1E1E1E;
+    border: none;
+    border-bottom: 1px solid #242424;
+    padding: 4px 8px;
+    spacing: 0;
+    min-height: 44px;
+    max-height: 44px;
+}
+QToolBar::separator {
+    background: #2A2A2A;
+    width: 1px;
+    margin: 9px 6px;
+}
+QToolBar QToolButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 4px 8px;
+    color: #757575;
+    font-size: 13px;
+}
+QToolBar QToolButton:hover {
+    background: #2A2A2A;
+    border-color: #333333;
+    color: #B3B3B3;
+}
+QToolBar QToolButton:pressed {
+    background: #303030;
+    border-color: #444444;
+    color: #FFFFFF;
+}
+QToolBar QToolButton:disabled { color: #333333; }
+
+/* Botões de modo — estado activo */
+#modeStdBtn, #modeStudyBtn, #modeCasualBtn {
+    color: #757575;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+#modeStdBtn:checked, #modeStudyBtn:checked, #modeCasualBtn:checked {
+    background: #282828;
+    border-color: #CCFF00;
+    color: #CCFF00;
+    font-weight: 500;
+}
+#modeStdBtn:hover, #modeStudyBtn:hover, #modeCasualBtn:hover {
+    background: #2A2A2A;
+    border-color: #383838;
+    color: #B3B3B3;
+}
+
+/* Sidebar toggle, zoom, navegação, ferramentas — idênticos ao Padrão */
+#sidebarToggleBtn {
+    font-size: 16px; color: #757575; padding: 3px 7px; border-radius: 10px;
+}
+#sidebarToggleBtn:hover  { color: #B3B3B3; background: #2A2A2A; }
+#sidebarToggleBtn:pressed { background: #303030; }
+
+#zoomOutBtn, #zoomInBtn {
+    font-size: 16px; font-weight: 300; color: #757575;
+    padding: 2px 5px; border-radius: 10px;
+}
+#zoomOutBtn:hover, #zoomInBtn:hover { color: #B3B3B3; background: #2A2A2A; }
+#zoomOutBtn:disabled, #zoomInBtn:disabled { color: #333333; }
+
+#zoomLabel, #pageLabel {
+    color: #B3B3B3; font-size: 12px; padding: 0 3px;
+    qproperty-alignment: 'AlignCenter';
+}
+#pageLabel { font-size: 13px; letter-spacing: 0.04em; }
+
+#prevPageBtn, #nextPageBtn {
+    font-size: 14px; color: #757575; padding: 2px 6px; border-radius: 10px;
+}
+#prevPageBtn:hover, #nextPageBtn:hover { color: #B3B3B3; background: #2A2A2A; }
+#prevPageBtn:disabled, #nextPageBtn:disabled { color: #333333; }
+
+#toolMove, #toolSelect, #toolAnnotate {
+    font-size: 15px; color: #757575; padding: 3px 7px; border-radius: 10px;
+}
+#toolMove:hover, #toolSelect:hover, #toolAnnotate:hover {
+    background: #2A2A2A; color: #B3B3B3;
+}
+
+#viewModeBtn {
+    color: #757575; font-size: 12px; padding: 4px 10px;
+    border: 1px solid transparent; border-radius: 10px;
+}
+#viewModeBtn:hover { background: #2A2A2A; border-color: #333333; color: #B3B3B3; }
+
+#modesLabel {
+    color: #4A4A4A; font-size: 10px; letter-spacing: 0.10em;
+    padding: 0 6px 0 8px; qproperty-alignment: 'AlignCenter';
+}
+
+#hamburgerBtn {
+    font-size: 17px; color: #757575; padding: 2px 7px; border-radius: 10px;
+}
+#hamburgerBtn:hover  { background: #2A2A2A; border-color: #333333; color: #B3B3B3; }
+
+/* ── Status Bar ──────────────────────────────────────────────────────────── */
+QStatusBar {
+    background: #181818;
+    color: #3A3A3A;
+    font-size: 11px;
+    border-top: 1px solid #1E1E1E;
+}
+QStatusBar QLabel { color: #4A4A4A; padding: 2px 6px; font-size: 11px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR ESQUERDA  (igual ao Padrão)
+   ═══════════════════════════════════════════════════════════════════════════ */
+QDockWidget {
+    font-size: 13px;
+    color: #B3B3B3;
+}
+QDockWidget::title {
+    background: #1E1E1E;
+    padding: 0;
+    max-height: 0;
+    border: none;
+}
+QDockWidget::close-button,
+QDockWidget::float-button {
+    border: none; padding: 3px; border-radius: 6px; background: transparent;
+}
+QDockWidget::close-button:hover,
+QDockWidget::float-button:hover { background: #2A2A2A; }
+
+#sidebarIconBar {
+    background: #1E1E1E;
+    border-bottom: 1px solid #242424;
+    min-height: 56px;
+    max-height: 56px;
+}
+#sidebarIconBar QToolButton {
+    background: #242424;
+    border: 1px solid #2E2E2E;
+    border-radius: 10px;
+    color: #757575;
+    font-size: 15px;
+}
+#sidebarIconBar QToolButton:hover {
+    background: #2A2A2A;
+    border-color: #3A3A3A;
+    color: #B3B3B3;
+}
+
+#sidebarTocLabel {
+    background: #181818;
+    color: #B3B3B3;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 0 8px 0;
+    qproperty-alignment: 'AlignCenter';
+}
+
+QTreeWidget {
+    background: #181818;
+    color: #757575;
+    border: none;
+    font-size: 13px;
+    padding: 4px 0;
+    outline: none;
+    selection-background-color: transparent;
+    selection-color: #B3B3B3;
+}
+QTreeWidget::item {
+    padding: 4px 8px 4px 4px;
+    border-radius: 6px;
+    color: #757575;
+    min-height: 22px;
+}
+QTreeWidget::item:hover   { background: #1E1E1E; color: #9A9A9A; }
+QTreeWidget::item:selected {
+    background: #242424;
+    color: #B3B3B3;
+    border-left: 2px solid #CCFF00;
+}
+QTreeWidget::branch { background: transparent; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAINEL DE ANOTAÇÕES DIREITO  (#annotPanel)
+   Corresponde ao Rectangle 61 do Figma: fill=#242424, rx=10, width=67
+   ═══════════════════════════════════════════════════════════════════════════ */
+#annotPanel {
+    background: #242424;
+    border-radius: 10px;
+    border-left: 1px solid #2E2E2E;
+}
+
+/* Botões de ferramenta de anotação */
+#annotBtnNotes {
+    background: #CCFF00;
+    border: none;
+    border-radius: 10px;
+    color: #181818;
+    font-size: 16px;
+    font-weight: 600;
+}
+#annotBtnNotes:hover  { background: #DDFF33; }
+#annotBtnNotes:pressed { background: #AADE00; }
+
+#annotBtnHighlight {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: #50C878;   /* verde caneta */
+    font-size: 18px;
+}
+#annotBtnHighlight:hover { background: #2A2A2A; border-color: #50C878; }
+
+#annotBtnText {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: #B3B3B3;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: serif;
+}
+#annotBtnText:hover { background: #2A2A2A; border-color: #555555; }
+
+#annotBtnPen {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: #FF4D4D;   /* vermelho caneta */
+    font-size: 16px;
+}
+#annotBtnPen:hover { background: #2A2A2A; border-color: #FF4D4D; }
+
+#annotBtnUnderline {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: #FF4D4D;
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: underline;
+}
+#annotBtnUnderline:hover { background: #2A2A2A; border-color: #FF4D4D; }
+
+#annotBtnSettings {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: #555555;
+    font-size: 15px;
+}
+#annotBtnSettings:hover { background: #2A2A2A; color: #B3B3B3; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBARS
+   ═══════════════════════════════════════════════════════════════════════════ */
+QScrollBar:vertical {
+    background: transparent; width: 5px; margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #2E2E2E; border-radius: 2px; min-height: 28px;
+}
+QScrollBar::handle:vertical:hover   { background: #454545; }
+QScrollBar::handle:vertical:pressed { background: #CCFF00; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+
+QScrollBar:horizontal {
+    background: transparent; height: 5px; margin: 0;
+}
+QScrollBar::handle:horizontal {
+    background: #2E2E2E; border-radius: 2px; min-width: 28px;
+}
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+
+QScrollArea {
+    background: #181818;
+    border: none;
+}
+
+/* ── QMenu do hamburguer ─────────────────────────────────────────────────── */
+QMenu#hamburgerMenu,
+QMenu#hamburgerFileMenu,
+QMenu#hamburgerViewMenu {
+    background: #242424;
+    color: #B3B3B3;
+    border: 1px solid #2E2E2E;
+    border-radius: 10px;
+    padding: 4px 0;
+    font-size: 13px;
+}
+QMenu#hamburgerMenu::item,
+QMenu#hamburgerFileMenu::item,
+QMenu#hamburgerViewMenu::item {
+    padding: 7px 28px 7px 16px;
+    border-radius: 6px;
+    margin: 1px 4px;
+}
+QMenu#hamburgerMenu::item:selected,
+QMenu#hamburgerFileMenu::item:selected,
+QMenu#hamburgerViewMenu::item:selected { background: #303030; color: #FFFFFF; }
+QMenu#hamburgerMenu::item:disabled,
+QMenu#hamburgerFileMenu::item:disabled,
+QMenu#hamburgerViewMenu::item:disabled { color: #3A3A3A; }
+QMenu#hamburgerMenu::separator,
+QMenu#hamburgerFileMenu::separator,
+QMenu#hamburgerViewMenu::separator { height: 1px; background: #2A2A2A; margin: 4px 10px; }
+
+/* ── Dropdown de modos — remove seta nativa do Qt ───────────────────────── */
+QToolButton#modeDropdownBtn::menu-indicator { image: none; width: 0px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAINEL DE MARCADORES  (modo Estudo — paleta escura com accent #CCFF00)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#sidebarBookmarkLabel {
+    background: #181818;
+    color: #B3B3B3;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 0 8px 0;
+    letter-spacing: 0.01em;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#bookmarkEmptyLabel {
+    color: #4A4A4A;
+    font-size: 13px;
+    padding: 20px 14px;
+    qproperty-alignment: 'AlignCenter';
+}
+
+QListWidget#bookmarkList {
+    background: #181818;
+    alternate-background-color: #181818;
+    border: none;
+    outline: none;
+    padding: 4px 0;
+    selection-background-color: transparent;
+    selection-color: #B3B3B3;
+}
+
+QListWidget#bookmarkList::item {
+    padding: 0;
+    margin: 0 0 1px 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+}
+
+QListWidget#bookmarkList::item:hover    { background: #1E1E1E; }
+QListWidget#bookmarkList::item:selected { background: #242424; border-left: 2px solid #CCFF00; }
+QListWidget#bookmarkList::item:selected:hover { background: #282828; }
+
+#bookmarkItem     { background: transparent; }
+
+#bookmarkPageLabel {
+    color: #4A4A4A;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+}
+
+#bookmarkDisplayLabel {
+    color: #757575;
+    font-size: 13px;
+}
+
+#bookmarkEditLine {
+    background: #242424;
+    border: 1px solid #3A3A3A;
+    border-radius: 4px;
+    color: #B3B3B3;
+    font-size: 13px;
+    padding: 1px 4px;
+    selection-background-color: #383838;
+}
+
+#bookmarkRemoveBtn {
+    background: transparent;
+    border: none;
+    color: #303030;
+    font-size: 10px;
+    padding: 1px 3px;
+    border-radius: 4px;
+}
+#bookmarkRemoveBtn:hover {
+    background: #2A2A2A;
+    border: 1px solid #3A3A3A;
+    color: #757575;
+}
+#bookmarkRemoveBtn:pressed { background: #303030; color: #B3B3B3; }
+
+#bookmarkEmbedBtn {
+    background: transparent;
+    border: none;
+    border-top: 1px solid #242424;
+    color: #4A4A4A;
+    font-size: 12px;
+    padding: 8px 0;
+    text-align: center;
+}
+#bookmarkEmbedBtn:hover  { color: #757575; background: #1E1E1E; }
+#bookmarkEmbedBtn:pressed { color: #B3B3B3; background: #242424; }
+
+#addBookmarkBtn {
+    background: #1E1E1E;
+    border: none;
+    border-top: 1px solid #242424;
+    color: #4A4A4A;
+    font-size: 13px;
+    padding: 10px 14px;
+    text-align: left;
+}
+#addBookmarkBtn:hover    { background: #242424; color: #757575; }
+#addBookmarkBtn:checked  { background: #242424; color: #CCFF00; border-top: 1px solid #2E2E2E; }
+#addBookmarkBtn:disabled { color: #282828; }
