@@ -42,6 +42,9 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS
     WebEngineWidgets
     DBus
     Svg
+    Quick               # Motor QML — CasualModeView
+    QuickControls2      # Popup, TabBar, ScrollView, etc.
+    Qml                 # QML_ELEMENT / QML_SINGLETON
 )
 
 # Poppler-Qt6 — usado por PDFEngine e RenderWorker
@@ -84,6 +87,9 @@ target_sources(l-reader
         src/DocumentEngine/markdown_engine.hpp
         src/DocumentEngine/toc_worker.hpp
         src/DocumentEngine/pdf_bookmark_manager.hpp
+        src/DocumentEngine/document_identity.hpp
+        src/DocumentEngine/highlight_entry.hpp
+        src/DocumentEngine/highlight_manager.hpp
         src/ViewLayer/bookmark_item_widget.hpp
     PRIVATE
         src/DocumentEngine/document_engine.cpp
@@ -91,7 +97,9 @@ target_sources(l-reader
         src/DocumentEngine/ebook_engine.cpp
         src/DocumentEngine/markdown_engine.cpp
         src/DocumentEngine/toc_worker.cpp
+        src/DocumentEngine/document_identity.cpp
         src/DocumentEngine/pdf_bookmark_manager.cpp
+        src/DocumentEngine/highlight_manager.cpp
         src/ViewLayer/bookmark_item_widget.cpp
 )
 
@@ -134,8 +142,32 @@ target_sources(l-reader
         src/ViewLayer/pdf_canvas_view.cpp
 )
 
-# Recursos (adicione seus .qrc quando existirem)
+# ── Recursos embebidos (.qrc) ─────────────────────────────────────────────────
 target_sources(l-reader PRIVATE src/resources.qrc)
+
+# ── CasualMode — Controller QObject exposto ao QML ────────────────────────────
+target_sources(l-reader
+    PUBLIC FILE_SET HEADERS BASE_DIRS src FILES
+        src/CasualMode/CasualModeController.h
+    PRIVATE
+        src/CasualMode/CasualModeController.cpp
+)
+
+# ── QML Module — Modo Casual (requer Qt 6.4+) ─────────────────────────────────
+# Agrupa os ficheiros QML num módulo com URI "LReader.Casual".
+# O motor QML resolve os imports e embute os ficheiros no binário via RCC.
+qt_add_qml_module(l-reader
+    URI            LReader.Casual
+    VERSION        1.0
+    RESOURCE_PREFIX /LReader
+    QML_FILES
+        src/qml/casual/CasualModeView.qml
+        src/qml/casual/CasualModeHeader.qml
+        src/qml/casual/TextSettingsPopover.qml
+        src/qml/casual/CasualModeFooter.qml
+        src/qml/casual/CasualModeSidebar.qml
+    NO_PLUGIN   # Embute o módulo directo no executável; sem .so separado
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Diretórios de include
@@ -159,6 +191,9 @@ target_link_libraries(l-reader PRIVATE
     Poppler::Qt6
     Qt6::DBus
     Qt6::Svg
+    Qt6::Qml              # QML_ELEMENT, QQmlContext, QQmlApplicationEngine
+    Qt6::Quick            # QQuickWidget — hospeda CasualModeView no QWidget app
+    Qt6::QuickControls2   # Popup, TabBar, ScrollView, ScrollBar
 )
 
 # ─────────────────────────────────────────────────────────────────────────────

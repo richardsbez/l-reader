@@ -1,43 +1,46 @@
 <!DOCTYPE RCC>
 <RCC version="1.0">
   <qresource prefix="/">
-    <!-- styles estão em src/styles/ — mesmo nível do .qrc -->
+    <!-- ── Folhas de estilo QSS ─────────────────────────────────────────── -->
     <file alias="styles/standard.qss">styles/standard.qss</file>
     <file alias="styles/casual.qss">styles/casual.qss</file>
     <file alias="styles/study.qss">styles/study.qss</file>
 
-    <!-- icons estão em output/icons/ — um nível acima -->
-
-    <!-- Sidebar — Modo Padrão / Estudo -->
+    <!-- ── Ícones SVG ── Sidebar / Modo Padrão / Estudo ─────────────────── -->
     <file alias="icons/Search.svg">../icons/Search.svg</file>
     <file alias="icons/Image.svg">../icons/Image.svg</file>
     <file alias="icons/Edit.svg">../icons/Edit.svg</file>
     <file alias="icons/Bookmark.svg">../icons/Bookmark.svg</file>
     <file alias="icons/List.svg">../icons/List.svg</file>
 
-    <!-- Toolbar — grupo esquerdo -->
+    <!-- ── Ícones SVG ── Toolbar (grupo esquerdo) ───────────────────────── -->
     <file alias="icons/Sidebar.svg">../icons/Sidebar.svg</file>
     <file alias="icons/Minus.svg">../icons/Minus.svg</file>
     <file alias="icons/Plus.svg">../icons/Plus.svg</file>
     <file alias="icons/ViewMode.svg">../icons/ViewMode.svg</file>
 
-    <!-- Toolbar — Centro -->
+    <!-- ── Ícones SVG ── Toolbar (centro) ──────────────────────────────── -->
     <file alias="icons/Down.svg">../icons/Down.svg</file>
     <file alias="icons/Up.svg">../icons/Up.svg</file>
 
-    <!-- Toolbar — Grupo Direito -->
+    <!-- ── Ícones SVG ── Toolbar (grupo direito) ────────────────────────── -->
     <file alias="icons/Move.svg">../icons/Move.svg</file>
     <file alias="icons/Navigation.svg">../icons/Navigation.svg</file>
     <file alias="icons/EditYellow.svg">../icons/EditYellow.svg</file>
 
-<!-- Painel de Anotações — Modo Estudo -->
-<file alias="icons/NotaSquare.svg">../icons/NotaSquare.svg</file>
-<file alias="icons/Edit2.svg">../icons/Edit2.svg</file>
-<file alias="icons/Edit3.svg">../icons/Edit3.svg</file>
-<file alias="icons/TypeText.svg">../icons/TypeText.svg</file>
-<file alias="icons/Underline.svg">../icons/Underline.svg</file>
-<file alias="icons/Sliders.svg">../icons/Sliders.svg</file>
+    <!-- ── Ícones SVG ── Painel de Anotações (Modo Estudo) ──────────────── -->
+    <file alias="icons/NotaSquare.svg">../icons/NotaSquare.svg</file>
+    <file alias="icons/Edit2.svg">../icons/Edit2.svg</file>
+    <file alias="icons/Edit3.svg">../icons/Edit3.svg</file>
+    <file alias="icons/TypeText.svg">../icons/TypeText.svg</file>
+    <file alias="icons/Underline.svg">../icons/Underline.svg</file>
+    <file alias="icons/Sliders.svg">../icons/Sliders.svg</file>
 
-
+    <!--
+      NOTA: Os ficheiros QML do Modo Casual NAO sao listados aqui.
+      Sao geridos pelo cmake via qt_add_qml_module() com RESOURCE_PREFIX
+      "/LReader". O QQuickWidget carrega-os via:
+        engine.load(QUrl("qrc:/LReader/LReader/Casual/CasualModeView.qml"))
+    -->
   </qresource>
 </RCC>

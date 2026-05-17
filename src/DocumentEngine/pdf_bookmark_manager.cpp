@@ -1,5 +1,6 @@
 // pdf_bookmark_manager.cpp
 #include "pdf_bookmark_manager.hpp"
+#include "document_identity.hpp"
 
 #include <poppler-annotation.h>
 
@@ -65,16 +66,22 @@ void PdfBookmarkManager::clear()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// jsonPath — caminho do sidecar JSON
+// jsonPath — usa o hash do conteúdo como chave (conceito Okular "RG do arquivo")
 //
-// Exemplo: notesDir/Java_-_Como_Programar.pdf.bookmarks.json
+// Exemplo:  notesDir/a3f2c1b8e4d09712.bookmarks.json
+// Fallback: nome do arquivo se o hash falhar.
 // ─────────────────────────────────────────────────────────────────────────────
 QString PdfBookmarkManager::jsonPath() const
 {
-    const QString baseName = QFileInfo(m_filePath).fileName()
-                                 .replace(QLatin1Char('/'), QLatin1Char('_'))
-                                 .replace(QLatin1Char(' '), QLatin1Char('_'));
-    return m_notesDir + QLatin1Char('/') + baseName
+    const QString id = DocumentIdentity::idForFile(m_filePath);
+
+    const QString key = id.isEmpty()
+        ? QFileInfo(m_filePath).fileName()
+              .replace(QLatin1Char('/'), QLatin1Char('_'))
+              .replace(QLatin1Char(' '), QLatin1Char('_'))
+        : id;
+
+    return m_notesDir + QLatin1Char('/') + key
            + QLatin1String(".bookmarks.json");
 }
 
@@ -263,6 +270,7 @@ bool PdfBookmarkManager::save()
     QJsonObject root;
     root[QLatin1String("version")]       = QString::fromLatin1(kJsonVersion);
     root[QLatin1String("file")]          = QFileInfo(m_filePath).fileName();
+    root[QLatin1String("fileId")]        = DocumentIdentity::idForFile(m_filePath);
     root[QLatin1String("savedAt")]       = QDateTime::currentDateTime()
                                                .toString(Qt::ISODate);
     root[QLatin1String("bookmarks")]     = arr;
@@ -331,6 +339,8 @@ bool PdfBookmarkManager::saveToPdf()
     }
 
     m_pdfOutOfSync = false;
+    // O conteúdo do PDF mudou → o hash antigo é inválido
+    DocumentIdentity::invalidate(m_filePath);
     // Persiste os annotIds atualizados no JSON
     m_dirty = true;
     save();

@@ -5,6 +5,7 @@
 #include <QTextStream>
 #include <QDir>
 #include <QSettings>
+#include "../DocumentEngine/document_identity.hpp"
 
 SidecarManager::SidecarManager(const QString& notesDir, QObject* parent)
     : QObject(parent), m_notesDir(notesDir)
@@ -97,9 +98,16 @@ QString SidecarManager::sidecarPath(const QString& docPath) const
                                      + QStringLiteral(".md"));
 }
 
+// Conceito Okular "RG do arquivo": a posição de leitura é armazenada
+// pelo hash do conteúdo, não pelo nome do arquivo.  Mover ou renomear
+// o PDF retoma a leitura de onde parou.
 QString SidecarManager::positionPath(const QString& docPath) const
 {
-    const QFileInfo info(docPath);
-    return QDir(m_notesDir).filePath(info.completeBaseName()
-                                     + QStringLiteral(".pos"));
+    const QString id = DocumentIdentity::idForFile(docPath);
+
+    const QString key = id.isEmpty()
+        ? QFileInfo(docPath).completeBaseName()
+        : id;
+
+    return QDir(m_notesDir).filePath(key + QStringLiteral(".pos"));
 }

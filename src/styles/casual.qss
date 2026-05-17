@@ -1,462 +1,940 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   casual.qss  —  l-reader · Modo Casual
-   Paleta extraída do Figma (Rectangle 93: fill=#181818 @ 20% opacity
-   sobre fundo branco, sidebar vermelha CAPA DO LIVRO):
-     Base        #FFFFFF   Surface     #F5F5F5   Elevated    #EEEEEE
-     Border      #E0E0E0   TextPri     #1A1A1A   TextSec     #666666
-     AccentRed   #CC0000   AccentRedBg #E53935   NavBg       #1A1A1A
-     NavText     #FFFFFF   ProgressBg  #E0E0E0   ProgressFg  #1A1A1A
-   Layout bicolumnar: sidebar esquerda estreita (branca) + área de leitura
-   (fundo branco, tipografia preta, margens generosas).
+   casual.qss  —  l-reader · Modo Casual   (redesign Foliate / Adwaita GTK4)
+   ─────────────────────────────────────────────────────────────────────────
+   Paleta Adwaita Light:
+     Window     #f6f5f4   HeaderBar   #ebebeb   Surface     #ffffff
+     Panel      #f0eff0   Elevated    #e8e7e8   Border      rgba(0,0,0,0.11)
+     TextPri    #1c1c1c   TextSec     #5e5c64   TextDisab   #9a9996
+     Accent     #3584e4   AccentHov   #1c71d8   AccentFg    #ffffff
+     Selection  rgba(53,132,228,0.20)           SelBorder   #3584e4
+     Separator  rgba(0,0,0,0.08)
+   ─────────────────────────────────────────────────────────────────────────
+   Tipografia de leitura:
+     Body font  Georgia, "Palatino Linotype", serif
+     UI font    sistema (Cantarell / sans-serif padrão Qt)
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Janela principal ────────────────────────────────────────────────────── */
+/* ── Reset global / Janela principal ────────────────────────────────────── */
 QMainWindow {
-    background: #FFFFFF;
+    background: #f6f5f4;
+}
+QMainWindow::separator {
+    background: rgba(0, 0, 0, 0.06);
+    width: 1px;
+    height: 1px;
 }
 
-/* ── Menu Bar ────────────────────────────────────────────────────────────── */
+/* ── Menu Bar (nativa, quase invisível) ─────────────────────────────────── */
 QMenuBar {
-    background: #F5F5F5;
-    color: #666666;
-    border-bottom: 1px solid #E0E0E0;
+    background: #ebebeb;
+    color: #1c1c1c;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.10);
     font-size: 13px;
-    padding: 0 4px;
+    padding: 0 2px;
 }
 QMenuBar::item {
     padding: 5px 10px;
     border-radius: 6px;
-    color: #666666;
+    color: #1c1c1c;
     background: transparent;
 }
-QMenuBar::item:selected { background: #EEEEEE; color: #1A1A1A; }
-QMenuBar::item:pressed  { background: #E0E0E0; color: #1A1A1A; }
+QMenuBar::item:selected { background: rgba(0, 0, 0, 0.08); }
+QMenuBar::item:pressed  { background: rgba(0, 0, 0, 0.12); }
 
+/* ── QMenu genérico (popover Adwaita) ───────────────────────────────────── */
 QMenu {
-    background: #FFFFFF;
-    color: #1A1A1A;
-    border: 1px solid #E0E0E0;
-    border-radius: 10px;
-    padding: 4px 0;
+    background: #ffffff;
+    color: #1c1c1c;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 12px;
+    padding: 6px 0;
     font-size: 13px;
 }
-QMenu::item { padding: 7px 28px 7px 16px; border-radius: 6px; margin: 1px 4px; }
-QMenu::item:selected { background: #CC0000; color: #FFFFFF; }
-QMenu::item:disabled { color: #BBBBBB; }
-QMenu::separator { height: 1px; background: #E0E0E0; margin: 4px 10px; }
+QMenu::item {
+    padding: 8px 32px 8px 18px;
+    border-radius: 8px;
+    margin: 1px 5px;
+}
+QMenu::item:selected {
+    background: rgba(53, 132, 228, 0.18);
+    color: #1c71d8;
+}
+QMenu::item:disabled { color: #9a9996; }
+QMenu::separator {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.08);
+    margin: 5px 12px;
+}
+QMenu::indicator {
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TOOLBAR PRINCIPAL — oculta no Casual (escondida via C++ pelo CasualMode)
-   Definida aqui para o caso de ficar visível em transições.
+   TOOLBAR PRINCIPAL — oculta no Casual (CasualMode.enter() chama .hide())
+   Estilizada aqui para transições e fallback.
    ═══════════════════════════════════════════════════════════════════════════ */
-QToolBar#qt_toolbar_ext_button,
 QToolBar {
-    background: #F5F5F5;
+    background: #ebebeb;
     border: none;
-    border-bottom: 1px solid #E0E0E0;
-    padding: 4px 8px;
-    spacing: 0;
-    min-height: 44px;
-    max-height: 44px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.10);
+    padding: 4px 10px;
+    spacing: 2px;
+    min-height: 46px;
+    max-height: 46px;
 }
 QToolBar::separator {
-    background: #E0E0E0;
+    background: rgba(0, 0, 0, 0.10);
     width: 1px;
-    margin: 9px 6px;
+    margin: 10px 6px;
 }
 QToolBar QToolButton {
     background: transparent;
     border: 1px solid transparent;
     border-radius: 8px;
-    padding: 4px 8px;
-    color: #666666;
+    padding: 5px 9px;
+    color: #1c1c1c;
     font-size: 13px;
+    min-height: 28px;
 }
-QToolBar QToolButton:hover  { background: #EEEEEE; color: #1A1A1A; }
-QToolBar QToolButton:pressed { background: #E0E0E0; color: #1A1A1A; }
-QToolBar QToolButton:disabled { color: #BBBBBB; }
+QToolBar QToolButton:hover  {
+    background: rgba(0, 0, 0, 0.07);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+QToolBar QToolButton:pressed {
+    background: rgba(0, 0, 0, 0.13);
+}
+QToolBar QToolButton:checked {
+    background: rgba(53, 132, 228, 0.16);
+    border-color: rgba(53, 132, 228, 0.35);
+    color: #1c71d8;
+}
+QToolBar QToolButton:disabled { color: #9a9996; }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   BARRA DE NAVEGAÇÃO INFERIOR  (#bottomNavBar)
-   Fundo escuro #1A1A1A, altura 44px — estilo e-reader Kindle
-   ═══════════════════════════════════════════════════════════════════════════ */
-QToolBar#bottomNavBar {
-    background: #1A1A1A;
-    border: none;
-    border-top: 1px solid #333333;
-    padding: 4px 16px;
-    spacing: 8px;
-    min-height: 44px;
-    max-height: 44px;
+/* ── Botão de toggle da sidebar (header bar, canto esquerdo) ─────────────── */
+#sidebarToggleBtn {
+    border-radius: 8px;
+    padding: 5px 8px;
+    color: #5e5c64;
 }
-QToolBar#bottomNavBar QToolButton {
+#sidebarToggleBtn:hover {
+    background: rgba(0, 0, 0, 0.07);
+    color: #1c1c1c;
+}
+#sidebarToggleBtn:checked {
+    background: rgba(53, 132, 228, 0.14);
+    color: #1c71d8;
+    border-color: rgba(53, 132, 228, 0.30);
+}
+
+/* ── Botão de visualização / configuração de texto (ViewMode) ────────────── */
+#viewModeBtn {
     background: transparent;
-    border: 1px solid transparent;
+    border: 1px solid rgba(0, 0, 0, 0.12);
     border-radius: 8px;
     padding: 4px 10px;
-    color: #FFFFFF;
-    font-size: 16px;
-    font-weight: 500;
+    color: #5e5c64;
+    font-size: 12px;
 }
-QToolBar#bottomNavBar QToolButton:hover  { background: #2E2E2E; }
-QToolBar#bottomNavBar QToolButton:pressed { background: #3A3A3A; }
-
-QToolBar#bottomNavBar QToolButton#casualPrevBtn,
-QToolBar#bottomNavBar QToolButton#casualNextBtn {
-    font-size: 18px;
-    color: #FFFFFF;
-    font-weight: 600;
+#viewModeBtn:hover {
+    background: rgba(0, 0, 0, 0.07);
+    color: #1c1c1c;
+    border-color: rgba(0, 0, 0, 0.18);
 }
-
-/* Label de percentagem */
-QToolBar#bottomNavBar QLabel#progressLabel {
-    color: #CCCCCC;
-    font-size: 11px;
-    padding: 0 4px;
-    qproperty-alignment: 'AlignCenter';
+#viewModeBtn:pressed, #viewModeBtn:checked {
+    background: rgba(53, 132, 228, 0.14);
+    border-color: rgba(53, 132, 228, 0.35);
+    color: #1c71d8;
 }
 
-/* Slider de progresso */
-QToolBar#bottomNavBar QSlider#progressSlider {
-    margin: 0 8px;
+/* ── Hamburguer / dropdown de modos ─────────────────────────────────────── */
+#hamburgerBtn {
+    border-radius: 8px;
+    color: #5e5c64;
 }
-QSlider#progressSlider::groove:horizontal {
-    background: #444444;
-    height: 3px;
-    border-radius: 2px;
+#hamburgerBtn:hover {
+    background: rgba(0, 0, 0, 0.07);
+    color: #1c1c1c;
 }
-QSlider#progressSlider::handle:horizontal {
-    background: #FFFFFF;
-    width: 14px;
-    height: 14px;
-    margin: -6px 0;
-    border-radius: 7px;
+QToolButton#modeDropdownBtn::menu-indicator { image: none; width: 0; }
+
+QMenu#hamburgerMenu,
+QMenu#hamburgerFileMenu,
+QMenu#hamburgerViewMenu {
+    background: #ffffff;
+    color: #1c1c1c;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 12px;
+    padding: 6px 0;
+    font-size: 13px;
 }
-QSlider#progressSlider::sub-page:horizontal {
-    background: #FFFFFF;
-    border-radius: 2px;
+QMenu#hamburgerMenu::item,
+QMenu#hamburgerFileMenu::item,
+QMenu#hamburgerViewMenu::item {
+    padding: 8px 32px 8px 18px;
+    border-radius: 8px;
+    margin: 1px 5px;
+}
+QMenu#hamburgerMenu::item:selected,
+QMenu#hamburgerFileMenu::item:selected,
+QMenu#hamburgerViewMenu::item:selected {
+    background: rgba(53, 132, 228, 0.18);
+    color: #1c71d8;
+}
+QMenu#hamburgerMenu::item:disabled,
+QMenu#hamburgerFileMenu::item:disabled,
+QMenu#hamburgerViewMenu::item:disabled { color: #9a9996; }
+QMenu#hamburgerMenu::separator,
+QMenu#hamburgerFileMenu::separator,
+QMenu#hamburgerViewMenu::separator {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.08);
+    margin: 5px 12px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    FAIXA DE CAPÍTULO SUPERIOR  (#chapterHeaderBar)
-   Fundo branco, dois rótulos de texto cinza — título da obra / capítulo
+   Fita editorial ultra-fina — título da obra à esquerda, capítulo à direita.
+   Separador entre leitura e header bar, estilo Foliate.
    ═══════════════════════════════════════════════════════════════════════════ */
 QToolBar#chapterHeaderBar {
-    background: #FFFFFF;
+    background: #f6f5f4;
     border: none;
-    border-bottom: 1px solid #EEEEEE;
-    padding: 0 24px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+    padding: 0 32px;
     spacing: 0;
-    min-height: 28px;
-    max-height: 28px;
+    min-height: 26px;
+    max-height: 26px;
 }
 QToolBar#chapterHeaderBar QLabel {
-    color: #999999;
+    color: #9a9996;
     font-size: 11px;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    font-weight: 400;
 }
 #chapterLabelLeft  { text-align: left;  }
 #chapterLabelRight { text-align: right; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   STATUS BAR
+   BARRA DE NAVEGAÇÃO INFERIOR  (#bottomNavBar)
+   Timeline de leitura estilo Foliate — fundo escuro, barra fina de progresso,
+   botões de navegação discretos nos cantos.
    ═══════════════════════════════════════════════════════════════════════════ */
-QStatusBar {
-    background: #F5F5F5;
-    color: #999999;
-    font-size: 11px;
-    border-top: 1px solid #E0E0E0;
+QToolBar#bottomNavBar {
+    background: #1e1e2e;
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 0 20px;
+    spacing: 10px;
+    min-height: 48px;
+    max-height: 48px;
 }
-QStatusBar QLabel { color: #999999; padding: 2px 6px; font-size: 11px; }
+QToolBar#bottomNavBar QToolButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 6px 12px;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 16px;
+    font-weight: 500;
+    min-width: 32px;
+}
+QToolBar#bottomNavBar QToolButton:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.90);
+}
+QToolBar#bottomNavBar QToolButton:pressed {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Botões ‹ Prev e Next › com tipografia limpa */
+QToolBar#bottomNavBar QToolButton#casualPrevBtn,
+QToolBar#bottomNavBar QToolButton#casualNextBtn {
+    font-size: 17px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+    border-radius: 8px;
+    min-width: 36px;
+}
+QToolBar#bottomNavBar QToolButton#casualPrevBtn:hover,
+QToolBar#bottomNavBar QToolButton#casualNextBtn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.10);
+}
+
+/* Rótulo de percentagem / "Pág X de Y  ·  ~N min" */
+QToolBar#bottomNavBar QLabel#progressLabel {
+    color: rgba(255, 255, 255, 0.42);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    padding: 0 6px;
+    qproperty-alignment: 'AlignCenter';
+    min-width: 52px;
+}
+
+/* ── Slider de progresso / timeline de capítulos ────────────────────────── */
+QToolBar#bottomNavBar QSlider#progressSlider {
+    margin: 0 4px;
+}
+
+/* Groove: trilha fina, como timeline editorial */
+QSlider#progressSlider::groove:horizontal {
+    background: rgba(255, 255, 255, 0.14);
+    height: 3px;
+    border-radius: 2px;
+}
+
+/* Sub-page: progresso lido — accent azul suave no escuro */
+QSlider#progressSlider::sub-page:horizontal {
+    background: rgba(53, 132, 228, 0.80);
+    border-radius: 2px;
+}
+
+/* Handle: marcador de posição atual */
+QSlider#progressSlider::handle:horizontal {
+    background: #ffffff;
+    border: 2px solid rgba(53, 132, 228, 0.60);
+    width: 12px;
+    height: 12px;
+    margin: -5px 0;
+    border-radius: 6px;
+}
+QSlider#progressSlider::handle:horizontal:hover {
+    background: #e8f1fc;
+    border-color: #3584e4;
+    width: 14px;
+    height: 14px;
+    margin: -6px 0;
+    border-radius: 7px;
+}
+QSlider#progressSlider::handle:horizontal:pressed {
+    background: #3584e4;
+    border-color: #1c71d8;
+}
+
+/* Tick marks (marcas de divisão de capítulos) */
+QSlider#progressSlider::tick-mark:horizontal {
+    background: rgba(255, 255, 255, 0.35);
+    width: 1px;
+    height: 6px;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SIDEBAR ESQUERDA — Modo Casual
-   Fundo branco, sem borda, contém: capa do livro, título, autor, TOC flat
+   STATUS BAR — linha de estado minimalista
+   ═══════════════════════════════════════════════════════════════════════════ */
+QStatusBar {
+    background: #f6f5f4;
+    color: #9a9996;
+    font-size: 11px;
+    border-top: 1px solid rgba(0, 0, 0, 0.07);
+}
+QStatusBar QLabel  { color: #9a9996; padding: 2px 8px; font-size: 11px; }
+#sbFile {
+    color: #b4b1ba;
+    font-size: 11px;
+    padding: 2px 10px;
+    letter-spacing: 0.01em;
+}
+#sbMode {
+    color: #9a9996;
+    font-size: 11px;
+    padding: 2px 12px;
+    border-left: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DOCK WIDGET / SIDEBAR ESQUERDA — Modo Casual
+   Painel lateral estilo Foliate: fundo quase-branco, sem título, sem borders.
    ═══════════════════════════════════════════════════════════════════════════ */
 QDockWidget {
     font-size: 13px;
-    color: #1A1A1A;
-    background: #FFFFFF;
+    color: #1c1c1c;
+    background: #f0eff0;
+}
+#sideContainer {
+    background: #f0eff0;
+    border-right: 1px solid rgba(0, 0, 0, 0.09);
 }
 QDockWidget::title {
-    background: #FFFFFF;
+    background: transparent;
     padding: 0;
     max-height: 0;
     border: none;
 }
 QDockWidget::close-button,
 QDockWidget::float-button {
-    border: none; padding: 3px; border-radius: 6px; background: transparent;
+    border: none;
+    padding: 3px;
+    border-radius: 6px;
+    background: transparent;
 }
 QDockWidget::close-button:hover,
-QDockWidget::float-button:hover { background: #EEEEEE; }
+QDockWidget::float-button:hover {
+    background: rgba(0, 0, 0, 0.07);
+}
 
-/* ── Widget de info do livro ─────────────────────────────────────────────── */
+/* ── Widget de info do livro (capa + título + autor) ─────────────────────── */
 #bookInfoWidget {
-    background: #FFFFFF;
-    border-bottom: 1px solid #EEEEEE;
+    background: #f0eff0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
     padding: 0;
 }
 
-/* Placeholder da capa — vermelho sólido estilo Figma */
+/* Capa: retângulo accent arredondado — tom azul Adwaita */
 #bookCoverLabel {
-    background: #CC0000;
-    color: #FFFFFF;
-    font-size: 11px;
+    background: qlineargradient(
+        x1:0, y1:0, x2:0, y2:1,
+        stop:0 #4a90d9, stop:1 #3584e4
+    );
+    color: rgba(255, 255, 255, 0.90);
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    border-radius: 6px;
+    letter-spacing: 0.10em;
+    border-radius: 8px;
     qproperty-alignment: 'AlignCenter';
 }
 
 #bookTitleLabel {
-    color: #1A1A1A;
-    font-size: 14px;
+    color: #1c1c1c;
+    font-size: 13px;
     font-weight: 600;
-    padding: 4px 0 0 0;
+    padding: 6px 0 2px 0;
+    letter-spacing: -0.01em;
 }
-
 #bookAuthorLabel {
-    color: #888888;
+    color: #5e5c64;
     font-size: 12px;
     padding: 0;
 }
-
-/* Botão de info (ⓘ) — placeholder inerte */
 #bookInfoBtn {
     background: transparent;
     border: none;
-    color: #BBBBBB;
-    font-size: 14px;
-}
-#bookInfoBtn:hover { color: #666666; }
-
-/* ── Barra de ícones do sidebar (oculta no Casual) ──────────────────────── */
-#sidebarIconBar { background: #FFFFFF; }
-#sidebarTocLabel {
-    background: #FFFFFF;
-    color: #1A1A1A;
+    color: #9a9996;
     font-size: 13px;
+}
+#bookInfoBtn:hover { color: #5e5c64; }
+
+/* ── Barra de ícones do sidebar ─────────────────────────────────────────── */
+#sidebarIconBar { background: #f0eff0; }
+#sidebarIconBar QToolButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 6px;
+    color: #5e5c64;
+}
+#sidebarIconBar QToolButton:hover {
+    background: rgba(0, 0, 0, 0.07);
+    color: #1c1c1c;
+}
+#sidebarIconBar QToolButton:checked {
+    background: rgba(53, 132, 228, 0.15);
+    border-color: rgba(53, 132, 228, 0.28);
+    color: #1c71d8;
+}
+
+/* Rótulos de painel (TOC, Busca, Marcadores…) */
+#sidebarTocLabel,
+#sidebarBookmarkLabel,
+#sidebarAnnotLabel,
+#sidebarSearchLabel,
+#sidebarGalleryLabel {
+    background: #f0eff0;
+    color: #1c1c1c;
+    font-size: 12px;
     font-weight: 600;
-    padding: 8px 0 6px 0;
+    letter-spacing: 0.04em;
+    padding: 10px 0 7px 0;
     qproperty-alignment: 'AlignCenter';
 }
 
-/* ── Árvore do sumário — Casual (flat, sem decoração de branch) ──────────── */
+/* ── Mini-toolbar casual (TOC / Annotate / Bookmark) ────────────────────── */
+#casualBtnToc, #casualBtnAnnotate, #casualBtnBookmark {
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.11);
+    border-radius: 9px;
+    color: #5e5c64;
+    font-size: 14px;
+    padding: 5px 12px;
+}
+#casualBtnToc:hover, #casualBtnAnnotate:hover, #casualBtnBookmark:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #1c1c1c;
+    border-color: rgba(0, 0, 0, 0.16);
+}
+#casualBtnToc:checked, #casualBtnAnnotate:checked, #casualBtnBookmark:checked {
+    background: rgba(53, 132, 228, 0.14);
+    border-color: rgba(53, 132, 228, 0.30);
+    color: #1c71d8;
+}
+
+/* ── Árvore do sumário (TOC) — flat, sem ramos, estilo Foliate ───────────── */
 QTreeWidget {
-    background: #FFFFFF;
-    alternate-background-color: #FFFFFF;
-    color: #444444;
+    background: #f0eff0;
+    alternate-background-color: #f0eff0;
+    color: #3d3846;
     border: none;
     font-size: 13px;
     padding: 4px 0;
     outline: none;
     selection-background-color: transparent;
-    selection-color: #1A1A1A;
+    selection-color: #1c1c1c;
 }
 QTreeWidget::item {
-    padding: 5px 12px;
+    padding: 6px 10px 6px 6px;
     border-radius: 0;
-    color: #555555;
-    min-height: 24px;
-    border-bottom: 1px solid #F0F0F0;
+    min-height: 22px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
 }
-QTreeWidget::item:hover   { background: #F5F5F5; color: #1A1A1A; }
+QTreeWidget::item:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #1c1c1c;
+}
 QTreeWidget::item:selected {
-    background: #F0F0F0;
-    color: #CC0000;
-    border-left: 3px solid #CC0000;
+    background: rgba(53, 132, 228, 0.16);
+    color: #1c71d8;
+    border-left: 3px solid #3584e4;
 }
-QTreeWidget::branch { background: transparent; image: none; }
-
-/* Barra de ícones mini — Casual bottom-left */
-#casualBtnToc, #casualBtnAnnotate, #casualBtnBookmark {
-    background: #F5F5F5;
-    border: 1px solid #E0E0E0;
-    border-radius: 8px;
-    color: #666666;
-    font-size: 14px;
-    padding: 4px 10px;
-}
-#casualBtnToc:hover, #casualBtnAnnotate:hover, #casualBtnBookmark:hover {
-    background: #EEEEEE;
-    color: #1A1A1A;
+QTreeWidget::branch {
+    background: transparent;
+    image: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ÁREA DE CONTEÚDO PRINCIPAL
-   Fundo branco, sem borda — a página do livro é renderizada aqui
+   ÁREA DE CONTEÚDO / LEITURA
+   Fundo papel branco limpo — tipografia serifada editorial.
    ═══════════════════════════════════════════════════════════════════════════ */
 QScrollArea {
-    background: #FFFFFF;
+    background: #ffffff;
     border: none;
 }
 QScrollArea > QWidget > QWidget {
-    background: #FFFFFF;
+    background: #ffffff;
 }
 
-/* ── Scrollbars minimalistas (claras) ────────────────────────────────────── */
+/* ── Scrollbars ultra-finas (estilo Foliate / GNOME) ────────────────────── */
 QScrollBar:vertical {
     background: transparent;
-    width: 5px;
+    width: 6px;
     margin: 0;
 }
 QScrollBar::handle:vertical {
-    background: #CCCCCC;
-    border-radius: 2px;
-    min-height: 28px;
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 3px;
+    min-height: 32px;
 }
-QScrollBar::handle:vertical:hover   { background: #AAAAAA; }
-QScrollBar::handle:vertical:pressed { background: #888888; }
-QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::handle:vertical:hover   { background: rgba(0, 0, 0, 0.28); }
+QScrollBar::handle:vertical:pressed { background: rgba(0, 0, 0, 0.40); }
+QScrollBar::add-page:vertical,
+QScrollBar::sub-page:vertical  { background: transparent; }
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical  { height: 0; }
 
 QScrollBar:horizontal {
     background: transparent;
-    height: 5px;
+    height: 6px;
     margin: 0;
 }
 QScrollBar::handle:horizontal {
-    background: #CCCCCC;
-    border-radius: 2px;
-    min-width: 28px;
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 3px;
+    min-width: 32px;
 }
-QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-
-/* ── QMenu do hamburguer ─────────────────────────────────────────────────── */
-QMenu#hamburgerMenu,
-QMenu#hamburgerFileMenu,
-QMenu#hamburgerViewMenu {
-    background: #FFFFFF;
-    color: #1A1A1A;
-    border: 1px solid #E0E0E0;
-    border-radius: 10px;
-    padding: 4px 0;
-    font-size: 13px;
-}
-QMenu#hamburgerMenu::item,
-QMenu#hamburgerFileMenu::item,
-QMenu#hamburgerViewMenu::item {
-    padding: 7px 28px 7px 16px;
-    border-radius: 6px;
-    margin: 1px 4px;
-}
-QMenu#hamburgerMenu::item:selected,
-QMenu#hamburgerFileMenu::item:selected,
-QMenu#hamburgerViewMenu::item:selected { background: #CC0000; color: #FFFFFF; }
-QMenu#hamburgerMenu::item:disabled,
-QMenu#hamburgerFileMenu::item:disabled,
-QMenu#hamburgerViewMenu::item:disabled { color: #BBBBBB; }
-QMenu#hamburgerMenu::separator,
-QMenu#hamburgerFileMenu::separator,
-QMenu#hamburgerViewMenu::separator { height: 1px; background: #E0E0E0; margin: 4px 10px; }
-
-/* ── Dropdown de modos — remove seta nativa do Qt ───────────────────────── */
-QToolButton#modeDropdownBtn::menu-indicator { image: none; width: 0px; }
+QScrollBar::handle:horizontal:hover   { background: rgba(0, 0, 0, 0.28); }
+QScrollBar::handle:horizontal:pressed { background: rgba(0, 0, 0, 0.40); }
+QScrollBar::add-page:horizontal,
+QScrollBar::sub-page:horizontal { background: transparent; }
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal { width: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PAINEL DE MARCADORES  (modo Casual — paleta clara #FFFFFF / accent #CC0000)
+   PAINEL DE MARCADORES  (QListWidget#bookmarkList)
    ═══════════════════════════════════════════════════════════════════════════ */
-
-#sidebarBookmarkLabel {
-    background: #FFFFFF;
-    color: #1A1A1A;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 8px 0 6px 0;
-    qproperty-alignment: 'AlignCenter';
-}
-
 #bookmarkEmptyLabel {
-    color: #AAAAAA;
+    color: #9a9996;
     font-size: 13px;
-    padding: 20px 14px;
+    padding: 24px 16px;
     qproperty-alignment: 'AlignCenter';
 }
-
 QListWidget#bookmarkList {
-    background: #FFFFFF;
-    alternate-background-color: #FFFFFF;
+    background: #f0eff0;
+    alternate-background-color: #f0eff0;
     border: none;
     outline: none;
     padding: 4px 0;
     selection-background-color: transparent;
-    selection-color: #1A1A1A;
+    selection-color: #1c1c1c;
 }
-
 QListWidget#bookmarkList::item {
     padding: 0;
     margin: 0 0 1px 0;
     border: none;
-    border-bottom: 1px solid #F0F0F0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     border-radius: 0;
     background: transparent;
 }
-
-QListWidget#bookmarkList::item:hover    { background: #F5F5F5; }
-QListWidget#bookmarkList::item:selected { background: #F0F0F0; border-left: 3px solid #CC0000; }
-QListWidget#bookmarkList::item:selected:hover { background: #EBEBEB; }
-
-#bookmarkItem     { background: transparent; }
-
+QListWidget#bookmarkList::item:hover    { background: rgba(0, 0, 0, 0.05); }
+QListWidget#bookmarkList::item:selected {
+    background: rgba(53, 132, 228, 0.13);
+    border-left: 3px solid #3584e4;
+}
+#bookmarkItem          { background: transparent; }
 #bookmarkPageLabel {
-    color: #AAAAAA;
+    color: #9a9996;
     font-size: 11px;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.03em;
 }
-
-#bookmarkDisplayLabel {
-    color: #555555;
-    font-size: 13px;
-}
-
+#bookmarkDisplayLabel  { color: #3d3846; font-size: 13px; }
 #bookmarkEditLine {
-    background: #F5F5F5;
-    border: 1px solid #DDDDDD;
-    border-radius: 4px;
-    color: #1A1A1A;
+    background: #eae9ea;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 6px;
+    color: #1c1c1c;
     font-size: 13px;
-    padding: 1px 4px;
-    selection-background-color: #E0E0E0;
+    padding: 2px 6px;
+    selection-background-color: rgba(53, 132, 228, 0.25);
 }
-
 #bookmarkRemoveBtn {
     background: transparent;
     border: none;
-    color: #DDDDDD;
+    color: rgba(0, 0, 0, 0.20);
     font-size: 10px;
-    padding: 1px 3px;
+    padding: 2px 4px;
     border-radius: 4px;
 }
 #bookmarkRemoveBtn:hover {
-    background: #F0F0F0;
-    border: 1px solid #DDDDDD;
-    color: #888888;
+    background: rgba(224, 27, 36, 0.10);
+    border: 1px solid rgba(224, 27, 36, 0.20);
+    color: #e01b24;
 }
-#bookmarkRemoveBtn:pressed { background: #E5E5E5; color: #333333; }
-
+#bookmarkRemoveBtn:pressed { background: rgba(224, 27, 36, 0.18); }
 #bookmarkEmbedBtn {
     background: transparent;
     border: none;
-    border-top: 1px solid #EEEEEE;
-    color: #AAAAAA;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    color: #9a9996;
     font-size: 12px;
-    padding: 8px 0;
+    padding: 9px 0;
     text-align: center;
 }
-#bookmarkEmbedBtn:hover  { color: #555555; background: #F5F5F5; }
-#bookmarkEmbedBtn:pressed { color: #1A1A1A; background: #EBEBEB; }
-
+#bookmarkEmbedBtn:hover  { color: #5e5c64; background: rgba(0, 0, 0, 0.04); }
+#bookmarkEmbedBtn:pressed { color: #1c1c1c; }
 #addBookmarkBtn {
-    background: #FAFAFA;
+    background: transparent;
     border: none;
-    border-top: 1px solid #EEEEEE;
-    color: #AAAAAA;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    color: #9a9996;
     font-size: 13px;
-    padding: 10px 14px;
+    padding: 11px 16px;
     text-align: left;
 }
-#addBookmarkBtn:hover    { background: #F5F5F5; color: #555555; }
-#addBookmarkBtn:checked  { background: #F0F0F0; color: #CC0000; }
-#addBookmarkBtn:disabled { color: #DDDDDD; }
+#addBookmarkBtn:hover    { background: rgba(0, 0, 0, 0.04); color: #5e5c64; }
+#addBookmarkBtn:checked  { background: rgba(53, 132, 228, 0.12); color: #1c71d8; }
+#addBookmarkBtn:disabled { color: rgba(0, 0, 0, 0.20); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAINEL DE GALERIA
+   ═══════════════════════════════════════════════════════════════════════════ */
+#galleryEmptyLabel {
+    color: #9a9996;
+    font-size: 13px;
+    padding: 24px 16px;
+    qproperty-alignment: 'AlignCenter';
+}
+QListWidget#galleryList {
+    background: #f0eff0;
+    border: none;
+    outline: none;
+}
+QListWidget#galleryList::item {
+    background: transparent;
+    color: #9a9996;
+    font-size: 11px;
+    padding-bottom: 4px;
+    border-radius: 6px;
+}
+QListWidget#galleryList::item:selected,
+QListWidget#galleryList::item:hover {
+    background: rgba(53, 132, 228, 0.12);
+    color: #1c71d8;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAINEL DE ANOTAÇÕES / HIGHLIGHTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+#annotEmptyLabel {
+    color: #9a9996;
+    font-size: 13px;
+    padding: 24px 16px;
+    qproperty-alignment: 'AlignCenter';
+}
+QListWidget#annotList {
+    background: #f0eff0;
+    border: none;
+    outline: none;
+    padding: 4px 0;
+    selection-background-color: transparent;
+    selection-color: #1c1c1c;
+}
+QListWidget#annotList::item {
+    padding: 7px 12px;
+    margin: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    color: #5e5c64;
+    font-size: 12px;
+    border-left: 3px solid transparent;
+    background: transparent;
+}
+QListWidget#annotList::item:hover {
+    background: rgba(218, 166, 58, 0.10);
+    color: #1c1c1c;
+    border-left: 3px solid #d8a838;
+}
+QListWidget#annotList::item:selected {
+    background: rgba(218, 166, 58, 0.15);
+    color: #1c1c1c;
+    border-left: 3px solid #d8a838;
+}
+QToolButton#toolAnnotateBtn:checked {
+    background: rgba(218, 166, 58, 0.14);
+    border: 1px solid rgba(218, 166, 58, 0.35);
+    border-radius: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAINEL DE BUSCA
+   ═══════════════════════════════════════════════════════════════════════════ */
+#searchInputContainer {
+    background: #f0eff0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+#searchInput {
+    background: #e8e7e8;
+    border: 1px solid rgba(0, 0, 0, 0.11);
+    border-radius: 8px;
+    color: #1c1c1c;
+    font-size: 13px;
+    padding: 6px 10px;
+    selection-background-color: rgba(53, 132, 228, 0.25);
+    selection-color: #1c1c1c;
+}
+#searchInput:focus {
+    background: #ffffff;
+    border-color: rgba(53, 132, 228, 0.50);
+}
+#searchInput:hover { border-color: rgba(0, 0, 0, 0.18); }
+#searchStatus {
+    background: #f0eff0;
+    color: #9a9996;
+    font-size: 11px;
+    padding: 6px 12px 4px 12px;
+    qproperty-alignment: 'AlignCenter';
+}
+QListWidget#searchResultsList {
+    background: #f0eff0;
+    alternate-background-color: #f0eff0;
+    border: none;
+    outline: none;
+    padding: 4px 0;
+    selection-background-color: transparent;
+    selection-color: #1c1c1c;
+}
+QListWidget#searchResultsList::item {
+    padding: 7px 12px;
+    margin: 0 0 1px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    border-left: 3px solid transparent;
+    color: #5e5c64;
+    font-size: 12px;
+    background: transparent;
+}
+QListWidget#searchResultsList::item:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #1c1c1c;
+    border-left: 3px solid #3584e4;
+}
+QListWidget#searchResultsList::item:selected {
+    background: rgba(53, 132, 228, 0.13);
+    color: #1c71d8;
+    border-left: 3px solid #3584e4;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   POPOVER / MENU DE CONFIGURAÇÕES DE TEXTO
+   Estiliza os QMenu e QDialog de configurações com aparência Adwaita-popover.
+   ─────────────────────────────────────────────────────────────────────────
+   Nota: QMenu não suporta box-shadow nativo via QSS.
+   Usa border + border-radius para simular o popover GTK4 arredondado.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Menu de configurações de visualização / fonte */
+QMenu#textConfigMenu,
+QMenu#fontMenu,
+QMenu#themeMenu {
+    background: #ffffff;
+    color: #1c1c1c;
+    border: 1px solid rgba(0, 0, 0, 0.13);
+    border-radius: 14px;
+    padding: 8px 0;
+    font-size: 13px;
+    min-width: 220px;
+}
+QMenu#textConfigMenu::item,
+QMenu#fontMenu::item,
+QMenu#themeMenu::item {
+    padding: 9px 36px 9px 18px;
+    border-radius: 8px;
+    margin: 1px 6px;
+}
+QMenu#textConfigMenu::item:selected,
+QMenu#fontMenu::item:selected,
+QMenu#themeMenu::item:selected {
+    background: rgba(53, 132, 228, 0.16);
+    color: #1c71d8;
+}
+QMenu#textConfigMenu::separator,
+QMenu#fontMenu::separator,
+QMenu#themeMenu::separator {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.07);
+    margin: 6px 14px;
+}
+
+/* ── Botões de tema rápido dentro do menu ─────────────────────────────────
+   São QToolButton individuais posicionados num widget de menu personalizado. */
+QToolButton#themeWhiteBtn {
+    background: #ffffff;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    border-radius: 20px;
+    min-width: 32px;
+    min-height: 32px;
+    color: #1c1c1c;
+    font-size: 10px;
+}
+QToolButton#themeWhiteBtn:hover  { border-color: #3584e4; }
+QToolButton#themeWhiteBtn:checked { border: 2px solid #3584e4; }
+
+QToolButton#themeDarkBtn {
+    background: #1e1e2e;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 20px;
+    min-width: 32px;
+    min-height: 32px;
+    color: #cdd6f4;
+    font-size: 10px;
+}
+QToolButton#themeDarkBtn:hover  { border-color: #3584e4; }
+QToolButton#themeDarkBtn:checked { border: 2px solid #3584e4; }
+
+QToolButton#themeSepiaBtn {
+    background: #f4ecd8;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    border-radius: 20px;
+    min-width: 32px;
+    min-height: 32px;
+    color: #5c4a2a;
+    font-size: 10px;
+}
+QToolButton#themeSepiaBtn:hover  { border-color: #3584e4; }
+QToolButton#themeSepiaBtn:checked { border: 2px solid #3584e4; }
+
+QToolButton#themeSolarizedBtn {
+    background: #fdf6e3;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    border-radius: 20px;
+    min-width: 32px;
+    min-height: 32px;
+    color: #657b83;
+    font-size: 10px;
+}
+QToolButton#themeSolarizedBtn:hover  { border-color: #3584e4; }
+QToolButton#themeSolarizedBtn:checked { border: 2px solid #3584e4; }
+
+/* ── Botões A− / A+ de tamanho de fonte ──────────────────────────────────── */
+QToolButton#fontDecBtn,
+QToolButton#fontIncBtn {
+    background: #f0eff0;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 8px;
+    padding: 4px 10px;
+    color: #1c1c1c;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 34px;
+    min-height: 30px;
+}
+QToolButton#fontDecBtn:hover,
+QToolButton#fontIncBtn:hover {
+    background: #e8e7e8;
+    border-color: rgba(0, 0, 0, 0.18);
+}
+QToolButton#fontDecBtn:pressed,
+QToolButton#fontIncBtn:pressed {
+    background: rgba(53, 132, 228, 0.15);
+    border-color: rgba(53, 132, 228, 0.30);
+    color: #1c71d8;
+}
+
+/* ── Seletores de fonte (Serif / Sans / Mono) ────────────────────────────── */
+QToolButton#fontSerifBtn,
+QToolButton#fontSansBtn,
+QToolButton#fontMonoBtn {
+    background: #f0eff0;
+    border: 1px solid rgba(0, 0, 0, 0.11);
+    border-radius: 8px;
+    padding: 5px 12px;
+    color: #5e5c64;
+    font-size: 12px;
+    min-height: 30px;
+}
+QToolButton#fontSerifBtn:hover,
+QToolButton#fontSansBtn:hover,
+QToolButton#fontMonoBtn:hover {
+    background: #e8e7e8;
+    color: #1c1c1c;
+}
+QToolButton#fontSerifBtn:checked,
+QToolButton#fontSansBtn:checked,
+QToolButton#fontMonoBtn:checked {
+    background: rgba(53, 132, 228, 0.15);
+    border-color: rgba(53, 132, 228, 0.35);
+    color: #1c71d8;
+    font-weight: 600;
+}
+
+/* ── Sliders de margem / espaçamento de linha ────────────────────────────── */
+QSlider#marginSlider::groove:horizontal,
+QSlider#lineSpacingSlider::groove:horizontal {
+    background: #d4d3d4;
+    height: 4px;
+    border-radius: 2px;
+}
+QSlider#marginSlider::sub-page:horizontal,
+QSlider#lineSpacingSlider::sub-page:horizontal {
+    background: #3584e4;
+    border-radius: 2px;
+}
+QSlider#marginSlider::handle:horizontal,
+QSlider#lineSpacingSlider::handle:horizontal {
+    background: #ffffff;
+    border: 2px solid #3584e4;
+    width: 14px;
+    height: 14px;
+    margin: -6px 0;
+    border-radius: 7px;
+}
+QSlider#marginSlider::handle:horizontal:hover,
+QSlider#lineSpacingSlider::handle:horizontal:hover {
+    background: #e8f1fc;
+    border-color: #1c71d8;
+}
+
+/* ── Labels genéricas nos painéis de configuração ────────────────────────── */
+QLabel#configSectionLabel {
+    color: #9a9996;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 4px 0 2px 0;
+}

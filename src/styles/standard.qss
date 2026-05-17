@@ -142,9 +142,13 @@ QToolBar QToolButton:disabled { color: #333333; }
 
 #pageLabel {
     color: #B3B3B3;
-    font-size: 13px;
+    font-size: 12px;
+    font-weight: 500;
     letter-spacing: 0.04em;
-    padding: 0 4px;
+    padding: 3px 10px;
+    background: #222222;
+    border: 1px solid #2E2E2E;
+    border-radius: 8px;
     qproperty-alignment: 'AlignCenter';
 }
 
@@ -212,6 +216,18 @@ QStatusBar {
     border-top: 1px solid #1E1E1E;
 }
 QStatusBar QLabel { color: #4A4A4A; padding: 2px 6px; font-size: 11px; }
+#sbFile {
+    color: #3C3C3C;
+    font-size: 11px;
+    padding: 2px 8px;
+    letter-spacing: 0.01em;
+}
+#sbMode {
+    color: #4A4A4A;
+    font-size: 11px;
+    padding: 2px 10px;
+    border-left: 1px solid #252525;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SIDEBAR ESQUERDA
@@ -219,6 +235,10 @@ QStatusBar QLabel { color: #4A4A4A; padding: 2px 6px; font-size: 11px; }
 QDockWidget {
     font-size: 13px;
     color: #B3B3B3;
+}
+/* Borda direita que separa sidebar do canvas principal */
+#sideContainer {
+    border-right: 1px solid #242424;
 }
 QDockWidget::title {
     background: #1E1E1E;
@@ -259,6 +279,11 @@ QDockWidget::float-button:hover { background: #2A2A2A; }
     border-color: #4A4A4A;
     color: #FFFFFF;
 }
+#sidebarIconBar QToolButton:checked {
+    background: #303030;
+    border-color: #484848;
+    color: #FFFFFF;
+}
 
 #sidebarTocLabel {
     background: #181818;
@@ -275,17 +300,17 @@ QTreeWidget {
     alternate-background-color: #181818;
     color: #757575;
     border: none;
-    font-size: 13px;
+    font-size: 12px;
     padding: 4px 0;
     outline: none;
     selection-background-color: transparent;
     selection-color: #B3B3B3;
 }
 QTreeWidget::item {
-    padding: 4px 8px 4px 4px;
-    border-radius: 6px;
-    color: #757575;
-    min-height: 22px;
+    padding: 3px 6px 3px 2px;
+    border-radius: 4px;
+    /* sem color — deixa o C++ setForeground() por profundidade agir */
+    min-height: 20px;
 }
 QTreeWidget::item:hover   { background: #1E1E1E; color: #9A9A9A; }
 QTreeWidget::item:selected {
@@ -504,3 +529,176 @@ QListWidget#bookmarkList::item:selected:hover { background: #282828; }
 #addBookmarkBtn:hover    { background: #242424; color: #757575; }
 #addBookmarkBtn:checked  { background: #242424; color: #B3B3B3; border-top: 1px solid #2E2E2E; }
 #addBookmarkBtn:disabled { color: #282828; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAINEL DE GALERIA  (modo Padrão — paleta escura #181818)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#sidebarGalleryLabel {
+    background: #181818;
+    color: #B3B3B3;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 0 8px 0;
+    letter-spacing: 0.01em;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#galleryEmptyLabel {
+    color: #4A4A4A;
+    font-size: 13px;
+    padding: 20px 14px;
+    qproperty-alignment: 'AlignCenter';
+}
+
+QListWidget#galleryList {
+    background: #181818;
+    border: none;
+    outline: none;
+}
+
+QListWidget#galleryList::item {
+    background: transparent;
+    color: #7A7A7A;
+    font-size: 11px;
+    padding-bottom: 4px;
+    border-radius: 4px;
+}
+
+QListWidget#galleryList::item:selected,
+QListWidget#galleryList::item:hover {
+    background: #2A2A2A;
+    color: #D0D0D0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAINEL DE ANOTAÇÕES / HIGHLIGHTS  (modo Padrão — paleta escura #181818)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#sidebarAnnotLabel {
+    background: #181818;
+    color: #B3B3B3;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 0 8px 0;
+    letter-spacing: 0.01em;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#annotEmptyLabel {
+    color: #4A4A4A;
+    font-size: 13px;
+    padding: 20px 14px;
+    qproperty-alignment: 'AlignCenter';
+}
+
+QListWidget#annotList {
+    background: #181818;
+    border: none;
+    outline: none;
+    padding: 4px 0;
+    selection-background-color: transparent;
+    selection-color: #B3B3B3;
+}
+
+QListWidget#annotList::item {
+    padding: 6px 10px;
+    margin: 0 0 1px 0;
+    border-radius: 4px;
+    color: #757575;
+    font-size: 12px;
+    border-left: 3px solid transparent;
+    background: transparent;
+}
+
+QListWidget#annotList::item:hover {
+    background: #1E1E1E;
+    color: #9A9A9A;
+    border-left: 3px solid #FFD700;
+}
+
+QListWidget#annotList::item:selected {
+    background: #242424;
+    color: #B3B3B3;
+    border-left: 3px solid #FFD700;
+}
+
+/* toolAnnotateBtn — amarelo quando ativo */
+QToolButton#toolAnnotateBtn:checked {
+    background: rgba(255, 215, 0, 0.15);
+    border: 1px solid rgba(255, 215, 0, 0.40);
+    border-radius: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAINEL DE BUSCA  (modo Padrão — paleta escura #181818)
+   Segue exatamente a mesma linguagem visual do Sumário / Marcadores
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#sidebarSearchLabel {
+    background: #181818;
+    color: #B3B3B3;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 0 8px 0;
+    letter-spacing: 0.01em;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#searchInputContainer {
+    background: #181818;
+    border-bottom: 1px solid #242424;
+}
+
+#searchInput {
+    background: #222222;
+    border: 1px solid #2E2E2E;
+    border-radius: 6px;
+    color: #B3B3B3;
+    font-size: 13px;
+    padding: 5px 8px;
+    selection-background-color: #383838;
+    selection-color: #FFFFFF;
+}
+#searchInput:focus { border-color: #444444; }
+#searchInput:hover { border-color: #383838; }
+
+#searchStatus {
+    background: #181818;
+    color: #4A4A4A;
+    font-size: 11px;
+    padding: 6px 10px 4px 10px;
+    qproperty-alignment: 'AlignCenter';
+}
+
+QListWidget#searchResultsList {
+    background: #181818;
+    alternate-background-color: #181818;
+    border: none;
+    outline: none;
+    padding: 4px 0;
+    selection-background-color: transparent;
+    selection-color: #B3B3B3;
+}
+
+QListWidget#searchResultsList::item {
+    padding: 6px 10px;
+    margin: 0 0 1px 0;
+    border-radius: 4px;
+    color: #757575;
+    font-size: 12px;
+    border-left: 3px solid transparent;
+    background: transparent;
+}
+
+QListWidget#searchResultsList::item:hover {
+    background: #1E1E1E;
+    color: #9A9A9A;
+    border-left: 3px solid #555555;
+}
+
+QListWidget#searchResultsList::item:selected {
+    background: #242424;
+    color: #B3B3B3;
+    border-left: 3px solid #555555;
+}
