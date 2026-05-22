@@ -22,11 +22,11 @@ public:
         ctx.setSidebarCasualMode(true);
         if (ctx.sidebar())       ctx.sidebar()->show();
 
-        // Barra de navegação inferior: visível
-        if (ctx.bottomNav())     ctx.bottomNav()->show();
+        // Barra de navegação inferior: OCULTA — substituída pela tab bar da sidebar
+        // if (ctx.bottomNav())     ctx.bottomNav()->show();
 
-        // Faixa de capítulo no topo: visível
-        if (ctx.chapterHeader()) ctx.chapterHeader()->show();
+        // Faixa de capítulo no topo: oculta — título já aparece no header da sidebar
+        // if (ctx.chapterHeader()) ctx.chapterHeader()->show();
 
         // Margens generosas para layout estilo e-reader (duas colunas de texto)
         ctx.setMargins(QMargins(80, 24, 80, 24));

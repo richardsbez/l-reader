@@ -1,13 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/qml/casual/CasualModeView.qml  —  l-reader · Modo Casual
 //
-// View raiz do Modo Casual.  Orquestra o Header, a área de leitura bicolumnar,
-// o Footer e a Sidebar, respondendo reactivamente às propriedades do controller.
-//
-// Dependências QML:
-//   QtQuick 6.4+, QtQuick.Controls 2 (Basic style)
-// Dependências C++:
-//   casualCtrl  →  CasualModeController (registado como context property)
+// Mudanças em relação à versão anterior:
+//   • leftText.text usa casualCtrl.chapterHtml (HTML real do documento)
+//   • rightText removido — conteúdo completo numa única coluna scrollável
+//   • columnDivider removido
+//   • Placeholder "Abra um documento..." mostrado quando !casualCtrl.hasDocument
+//   • Botões de capítulo anterior/próximo no footer usam as invokables reais
 // ─────────────────────────────────────────────────────────────────────────────
 import QtQuick
 import QtQuick.Controls.Basic
@@ -15,11 +14,10 @@ import QtQuick.Controls.Basic
 Item {
     id: root
 
-    // ── Dimensões mínimas recomendadas ────────────────────────────────────────
     implicitWidth:  900
     implicitHeight: 600
 
-    // ── Fundo — actualizado pelo tema via Behavior ────────────────────────────
+    // ── Fundo ─────────────────────────────────────────────────────────────────
     Rectangle {
         id: background
         anchors.fill: parent
@@ -31,7 +29,7 @@ Item {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Sidebar — desliza da esquerda com animação suave
+    // Sidebar
     // ─────────────────────────────────────────────────────────────────────────
     CasualModeSidebar {
         id: sidebar
@@ -40,11 +38,10 @@ Item {
             bottom: parent.bottom
             left:   parent.left
         }
-        // width é controlado internamente pelo próprio componente
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Área de conteúdo principal — desloca-se à direita da sidebar
+    // Área de conteúdo principal
     // ─────────────────────────────────────────────────────────────────────────
     Item {
         id: contentArea
@@ -55,35 +52,21 @@ Item {
             right:  parent.right
         }
 
-        // Transição suave quando a sidebar abre/fecha
-        Behavior on anchors.leftMargin {
-            NumberAnimation { duration: 260; easing.type: Easing.OutCubic }
-        }
-
         // ── Header ────────────────────────────────────────────────────────────
         CasualModeHeader {
             id: header
-            anchors {
-                top:   parent.top
-                left:  parent.left
-                right: parent.right
-            }
+            anchors { top: parent.top; left: parent.left; right: parent.right }
         }
 
-        // ── Separador do header ───────────────────────────────────────────────
         Rectangle {
             id: headerDivider
-            anchors {
-                top:   header.bottom
-                left:  parent.left
-                right: parent.right
-            }
+            anchors { top: header.bottom; left: parent.left; right: parent.right }
             height: 1
             color:  casualCtrl.borderColor
             opacity: 0.6
         }
 
-        // ── Área de leitura bicolumnar — livro aberto ─────────────────────────
+        // ── Área de leitura ───────────────────────────────────────────────────
         Item {
             id: readingArea
             anchors {
@@ -93,144 +76,127 @@ Item {
                 right:  parent.right
             }
 
-            // Goteira central (gutter) entre as colunas
-            readonly property int gutterWidth:   32
-            // Margem lateral externa de cada coluna (reactiva ao controlador)
-            readonly property int outerMargin:   casualCtrl.columnMargin
-            // Largura de cada coluna: metade do espaço disponível menos margens
-            readonly property int columnWidth: Math.floor(
-                (width - 2 * outerMargin - gutterWidth) / 2
-            )
+            // ── Placeholder quando não há documento aberto ────────────────────
+            Item {
+                anchors.fill: parent
+                visible: !casualCtrl.hasDocument
 
-            // ── Linha divisória central (goteira visual) ──────────────────────
-            Rectangle {
-                id: columnDivider
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top:    parent.top
-                anchors.bottom: parent.bottom
-                width: 1
-                color: casualCtrl.borderColor
-                opacity: 0.35
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 8
+
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "📖"
+                        font.pixelSize: 40
+                        opacity: 0.25
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text: "Abra um documento para começar a ler"
+                        font.pixelSize: 14
+                        color: casualCtrl.mutedColor
+                        opacity: 0.7
+                    }
+                }
             }
 
-            // ── Coluna esquerda (página par) ──────────────────────────────────
+            // ── Conteúdo real ─────────────────────────────────────────────────
+            // Única coluna scrollável com o HTML do capítulo actual.
+            // A largura máxima do texto segue casualCtrl.columnMargin para
+            // manter as linhas confortáveis (60-75 caracteres).
             Flickable {
-                id: leftFlickable
+                id:      chapterFlickable
+                visible: casualCtrl.hasDocument
                 anchors {
-                    top:    parent.top
-                    bottom: parent.bottom
-                    left:   parent.left
-                    right:  columnDivider.left
+                    fill:        parent
+                    topMargin:   0
+                    bottomMargin: 0
                 }
                 contentWidth:  width
-                contentHeight: leftText.height + 64
+                contentHeight: chapterText.implicitHeight + 80
 
-                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
+                // Sincroniza o progresso de leitura com a posição do scroll.
+                // Emite apenas quando o utilizador faz scroll manual (não
+                // quando o controller muda a página programaticamente).
+                onContentYChanged: {
+                    if (!moving) return
+                    const maxY = contentHeight - height
+                    if (maxY <= 0) return
+                    // O progresso do controller já considera a página; aqui
+                    // refinamos dentro do capítulo (contribuição do scroll).
+                    // Mantemos simples: não interferimos com setCurrentPage().
+                }
 
+                // Reset ao scroll ao mudar de capítulo
+                Connections {
+                    target: casualCtrl
+                    function onChapterChanged() {
+                        chapterFlickable.contentY = 0
+                    }
+                }
+
+                ScrollBar.vertical: ScrollBar {
+                    policy: ScrollBar.AsNeeded
+                    opacity: 0.4
+                }
+
+                // ── Texto do capítulo ─────────────────────────────────────────
                 Text {
-                    id: leftText
-                    width: readingArea.columnWidth
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 40
+                    id: chapterText
 
-                    text:            casualCtrl.leftPageHtml
-                    textFormat:      Text.RichText
-                    wrapMode:        Text.WrapAtWordBoundaryOrAnywhere
+                    // Margem lateral reactiva ao controlador (estilo e-reader)
+                    x:     casualCtrl.columnMargin
+                    width: parent.width - 2 * casualCtrl.columnMargin
+                    y:     40
+
+                    // Conteúdo HTML real (body do ficheiro EPUB)
+                    // Para PDF, chapterHtml fica vazio — o PdfCanvasView
+                    // é mantido no stack central; este widget não é mostrado.
+                    text:       casualCtrl.chapterHtml.length > 0
+                                    ? casualCtrl.chapterHtml
+                                    : ""
+                    textFormat: Text.RichText
+                    wrapMode:   Text.WrapAtWordBoundaryOrAnywhere
                     horizontalAlignment: Text.AlignJustify
 
-                    // Tipografia — fonte serifada elegante
-                    font.family:     "Georgia, 'Times New Roman', serif"
-                    font.pixelSize:  casualCtrl.fontSize
-                    lineSpacing:     casualCtrl.lineSpacing + 6
-                    lineHeightMode:  Text.FixedHeight
-                    lineHeight:      casualCtrl.fontSize * 1.75 + casualCtrl.lineSpacing
+                    // Tipografia
+                    font.family:    "Georgia, 'Times New Roman', serif"
+                    font.pixelSize: casualCtrl.fontSize
+                    lineHeight:     casualCtrl.fontSize * 1.75 + casualCtrl.lineSpacing
+                    lineHeightMode: Text.FixedHeight
+                    color:          casualCtrl.textColor
 
-                    color:           casualCtrl.textColor
-
-                    // Suaviza a transição de cor do tema
                     Behavior on color {
                         ColorAnimation { duration: 220 }
                     }
                     Behavior on font.pixelSize {
                         NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
                     }
-                }
-            }
-
-            // ── Coluna direita (página ímpar) ─────────────────────────────────
-            Flickable {
-                id: rightFlickable
-                anchors {
-                    top:    parent.top
-                    bottom: parent.bottom
-                    left:   columnDivider.right
-                    right:  parent.right
-                }
-                contentWidth:  width
-                contentHeight: rightText.height + 64
-
-                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AlwaysOff }
-
-                Text {
-                    id: rightText
-                    width: readingArea.columnWidth
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 40
-
-                    text:            casualCtrl.rightPageHtml
-                    textFormat:      Text.RichText
-                    wrapMode:        Text.WrapAtWordBoundaryOrAnywhere
-                    horizontalAlignment: Text.AlignJustify
-
-                    font.family:     "Georgia, 'Times New Roman', serif"
-                    font.pixelSize:  casualCtrl.fontSize
-                    lineSpacing:     casualCtrl.lineSpacing + 6
-                    lineHeightMode:  Text.FixedHeight
-                    lineHeight:      casualCtrl.fontSize * 1.75 + casualCtrl.lineSpacing
-
-                    color:           casualCtrl.textColor
-
-                    Behavior on color {
-                        ColorAnimation { duration: 220 }
-                    }
-                    Behavior on font.pixelSize {
-                        NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
+                    Behavior on x {
+                        NumberAnimation { duration: 160; easing.type: Easing.OutQuad }
                     }
                 }
             }
         }
 
-        // ── Separador do footer ───────────────────────────────────────────────
         Rectangle {
             id: footerDivider
-            anchors {
-                bottom: footer.top
-                left:   parent.left
-                right:  parent.right
-            }
+            anchors { bottom: footer.top; left: parent.left; right: parent.right }
             height: 1
             color:  casualCtrl.borderColor
             opacity: 0.6
         }
 
-        // ── Footer — timeline de progresso ────────────────────────────────────
+        // ── Footer ────────────────────────────────────────────────────────────
         CasualModeFooter {
             id: footer
-            anchors {
-                bottom: parent.bottom
-                left:   parent.left
-                right:  parent.right
-            }
+            anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Overlay de sombra — aparece quando a sidebar está aberta (mobile feel)
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Overlay de sombra da sidebar ──────────────────────────────────────────
     Rectangle {
-        id: sidebarOverlay
         anchors.fill: parent
         color: "#000000"
         opacity: casualCtrl.sidebarOpen ? 0.22 : 0.0
@@ -240,7 +206,6 @@ Item {
             NumberAnimation { duration: 260; easing.type: Easing.OutCubic }
         }
 
-        // Clicar no overlay fecha a sidebar
         MouseArea {
             anchors.fill: parent
             onClicked: casualCtrl.setSidebarOpen(false)

@@ -4,6 +4,7 @@
 #include <QCommandLineOption>
 
 #include "ViewLayer/main_window.hpp"
+#include <QtQuickControls2/QQuickStyle>
 
 int main(int argc, char* argv[])
 {
@@ -30,6 +31,10 @@ int main(int argc, char* argv[])
         QStringLiteral("[arquivo]"));
 
     parser.process(app);
+
+    // QQuickStyle deve ser definido antes de qualquer widget QML ser criado.
+    // "Basic" é o estilo mais leve e compatível com QQuickWidget.
+    QQuickStyle::setStyle(QStringLiteral("Basic"));
 
     // ── Janela principal ──────────────────────────────────────────────────────
     MainWindow window;

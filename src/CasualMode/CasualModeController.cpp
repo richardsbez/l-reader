@@ -3,149 +3,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 #include "CasualModeController.h"
 
+#include "DocumentEngine/document_engine.hpp"
+#include "DocumentEngine/ebook_engine.hpp"
+
+#include <QFile>
+#include <QRegularExpression>
 #include <algorithm>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Paleta de cores — definição da constexpr declarada no header
+// Definição out-of-class da constexpr — removida (C++17 inline implícito).
+// Em C++20 (padrão do projecto) membros static constexpr não precisam de
+// definição fora da classe; deixar a linha causaria violação de ODR no Unity Build.
 // ─────────────────────────────────────────────────────────────────────────────
-constexpr CasualModeController::Palette CasualModeController::kPalettes[4];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Texto mockado — Lorem Ipsum rico em HTML/RichText.
-// Dividido em dois blocos para alimentar a página esquerda e a direita
-// do layout bicolumnar.  Gerado uma única vez (static local).
-// ─────────────────────────────────────────────────────────────────────────────
-const QString& CasualModeController::staticLeftHtml()
-{
-    static const QString s_html = QString::fromUtf8(
-        R"HTML(
-<p style='margin:0 0 1.2em 0;'>
-<span style='font-size:1.6em; font-weight:600; letter-spacing:-0.02em;'>Capítulo III</span><br/>
-<span style='font-size:1.15em; color:#888; letter-spacing:0.08em; text-transform:uppercase;'>O Labirinto Infinito</span>
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-No princípio era o Verbo, e o Verbo era a Biblioteca. Adso caminhava
-pelos corredores silenciosos do scriptorium enquanto a luz da manhã
-atravessava os vitrais coloridos, projectando padrões de ouro e azul
-sobre os pergaminhos dispostos nas longas bancadas de carvalho escuro.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-Frei Guilherme de Baskerville seguia-o de perto, os olhos miúdos e
-penetrantes percorrendo as prateleiras com aquela intensidade peculiar
-que tanto intimidava os monges mais jovens. <em>«Há aqui um livro»</em>,
-murmurou finalmente, <em>«que ninguém deve ler, mas que todos temem.»</em>
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-A abadia de Melk erguia-se sobre a rocha como uma coroa de pedra.
-Os seus muros guardavam séculos de saber acumulado, copiado,
-comentado e muitas vezes incompreendido. Os monges eram guardiões
-zelosos de um tesouro que poucos, fora das suas ordens, poderiam
-sequer imaginar na sua plenitude e complexidade.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-«Venerable Jorge», disse Guilherme, virando-se para o ancião cego
-que rezava no canto mais sombrio do scriptorium, «que me diz da
-morte de Adelmo? Era um iluminador de grande talento.» O ancião
-levantou lentamente a cabeça, e nos seus olhos opacos Adso julgou
-ver uma sombra de algo que não era bem tristeza.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-O inverno daquele ano de graça de 1327 havia chegado cedo e com
-inusitada ferocidade. A neve cobria os campos e os bosques que
-rodeavam o mosteiro, e os ventos cortantes do norte tornavam
-qualquer viagem um exercício de penitência involuntária. Era, por
-isso, com alguma surpresa que Adso observara a chegada de tantos
-visitantes illustres na véspera de Natal.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-O scriptorium era o coração pulsante da comunidade, o lugar onde o
-passado se tornava permanente e o efémero adquiria a gravidade da
-pedra. Dezenas de mãos trabalhavam em silêncio, penas de ganso
-arranhando pacientemente o vitelo tratado. O cheiro a tinta e a
-cera de abelha misturava-se com o incenso que continuamente ardia
-nos turíbulos de bronze pendurados das abóbadas.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-Berengar, o sub-bibliotecário, aproximou-se com passos hesitantes.
-Era um homem novo, de feições aguçadas e olhar evasivo, que parecia
-carregar sempre consigo o peso de um segredo que o sufocava.
-<em>«Irmão Guilherme»</em>, disse em voz baixa, <em>«há coisas nesta
-abadia que seria melhor não investigar.»</em>
-</p>
-        )HTML"
-    );
-    return s_html;
-}
-
-const QString& CasualModeController::staticRightHtml()
-{
-    // Raw string literal (C++11) — aspas e caracteres especiais sem necessidade de escape
-    static const QString s_html = QString::fromUtf8(
-        R"HTML(
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-Guilherme olhou para ele com aquela expressão de amável curiosidade
-que Adso já havia aprendido a reconhecer como sinal de interesse
-máximo. <em>«É precisamente o que um homem sensato diria quando
-deseja dissuadir um investigador»</em>, respondeu serenamente,
-<em>«o que torna a investigação absolutamente necessária.»</em>
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-A biblioteca ocupava o andar superior da torre oriental. Nenhum monge,
-excepto o bibliotecário e o seu assistente, tinha acesso directo às
-suas salas. Os livros desciam ao scriptorium mediante pedido formal
-ao Abade, e mesmo assim apenas os volumes considerados adequados ao
-estudo de cada irmão em particular eram concedidos.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-«É um labirinto», explicou Malaquias, o bibliotecário, com uma
-solenidade que beirava o orgulho. «Foi construído assim
-propositadamente, para que apenas os iniciados possam navegar os
-seus corredores sem se perderem nas trevas.» Havia nas suas palavras
-uma satisfação que Adso achou perturbante, como se o caos fosse
-uma forma de poder sobre aqueles que nele se perdiam.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-Naquela noite, Adso sonhou com livros. Via-os dispostos em filas
-intermináveis que se estendiam para além do horizonte, cada
-volume brilhando com uma luz própria, suave e azulada como a
-chama de uma vela vista através de um vidro. Nas lombadas
-gravadas a ouro lia nomes que não reconhecia em línguas que nunca
-aprendera, e ainda assim compreendia o seu significado com uma
-clareza quase dolorosa.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-De manhã, encontraram o segundo corpo. Jazia ao pé da torre, na
-mesma posição que Adelmo, os dedos ainda crispados em torno de
-nada, o rosto voltado para o céu cinzento de Janeiro. Guilherme
-ajoelhou-se e examinou as mãos com a sua lente de cristal.
-«Manchas negras nos dedos e na boca», disse pensativamente.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-O Abade Abbone convocou o capítulo ao meio-dia. Sentado no seu
-trono entalhado, as mãos juntas sobre o hábito negro, falou com
-a voz cuidadosamente modulada de quem está habituado à autoridade.
-<em>«Deus prova a fé dos seus servidores de maneiras que escapam à
-nossa compreensão»</em>, disse. <em>«Rezemos pelos nossos irmãos
-partidos e prossigamos o trabalho que lhes foi confiado.»</em>
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-Mas Guilherme não rezou. Ficou na sua cela, rodeado de notas e
-fragmentos de pergaminho, construindo metodicamente o mapa do
-labirinto a partir dos dados que recolhera durante o dia. Adso
-observava-o em silêncio, fascinado pela forma como aquela mente
-singular transformava o caos em ordem, o mistério em geometria.
-</p>
-<p style='margin:0 0 1em 0; text-indent:1.8em;'>
-«A verdade», disse finalmente Guilherme, sem levantar os olhos
-das suas anotações, «não está nos livros que possuímos, mas nos
-livros que alguém não quer que leiamos. E é sempre nesses que
-encontramos as respostas mais perigosas, as únicas que valem a
-pena procurar.»
-</p>
-        )HTML"
-    );
-    return s_html;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constructor
@@ -155,60 +24,255 @@ CasualModeController::CasualModeController(QObject* parent)
 {}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Cores derivadas do tema
+// setDocument — ponto de entrada principal
+//
+// Deve ser chamado sempre que:
+//   • um documento é aberto (openDocument no MainWindow), OU
+//   • o utilizador entra no Modo Casual com um documento já carregado.
+//
+// startPage: índice 0-based de página PDF, ou índice de spine para EPUB.
 // ─────────────────────────────────────────────────────────────────────────────
-QString CasualModeController::bgColor() const noexcept
+void CasualModeController::setDocument(DocumentEngine* engine, int startPage)
 {
-    return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].bg);
-}
+    m_engine          = engine;
+    m_hasDocument     = (engine != nullptr);
+    m_loadedChapterIndex = -1;   // invalida o cache de HTML
 
-QString CasualModeController::textColor() const noexcept
-{
-    return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].text);
-}
+    m_spineUrls.clear();
+    m_toc.clear();
+    m_chapterBreaks.clear();
+    m_bookTitle.clear();
+    m_author.clear();
+    m_totalPages   = 0;
+    m_chapterCount = 0;
+    m_chapterHtml.clear();
+    m_chapterUrl   = QUrl{};
 
-QString CasualModeController::headerBg() const noexcept
-{
-    return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].header);
-}
+    if (!engine) {
+        emit documentChanged();
+        return;
+    }
 
-QString CasualModeController::accentColor() const noexcept
-{
-    return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].accent);
-}
+    syncMetadataFromEngine();
 
-QString CasualModeController::borderColor() const noexcept
-{
-    return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].border);
-}
+    // Emite tudo de uma vez — a UI actualiza num único frame
+    emit documentChanged();
 
-QString CasualModeController::mutedColor() const noexcept
-{
-    return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].muted);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Conteúdo das páginas (mockado)
-// ─────────────────────────────────────────────────────────────────────────────
-QString CasualModeController::leftPageHtml() const noexcept
-{
-    return staticLeftHtml();
-}
-
-QString CasualModeController::rightPageHtml() const noexcept
-{
-    return staticRightHtml();
+    // Posiciona no ponto de leitura inicial
+    setCurrentPage(startPage);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Setters
+// syncMetadataFromEngine — extrai título, autor, spine, TOC e page count.
 // ─────────────────────────────────────────────────────────────────────────────
-void CasualModeController::setTheme(int theme)
+void CasualModeController::syncMetadataFromEngine()
 {
-    const auto t = static_cast<Theme>(std::clamp(theme, 0, 3));
-    if (m_theme == t) return;
-    m_theme = t;
-    emit themeChanged();
+    const DocumentType dt = m_engine->type();
+
+    // ── EPUB / MOBI ───────────────────────────────────────────────────────────
+    if (dt == DocumentType::EPUB || dt == DocumentType::MOBI) {
+        auto* ebook = static_cast<EBookEngine*>(m_engine);
+
+        m_bookTitle    = ebook->title();
+        m_author       = ebook->author();
+        m_spineUrls    = ebook->spineUrls();
+        m_chapterCount = m_spineUrls.size();
+        m_totalPages   = m_chapterCount;   // "páginas" = capítulos no Casual EPUB
+
+        // Popula o TOC interno a partir do DocumentEngine genérico
+        for (const TocEntry& e : ebook->tocEntries()) {
+            m_toc.append({ e.title, e.url, e.page });
+        }
+    }
+    // ── PDF ───────────────────────────────────────────────────────────────────
+    else if (dt == DocumentType::PDF) {
+        m_totalPages   = m_engine->pageCount();
+        m_chapterCount = 0;   // PDF usa páginas, não capítulos discretos
+
+        for (const TocEntry& e : m_engine->tocEntries()) {
+            m_toc.append({ e.title, {}, e.page });
+        }
+    }
+    // ── Markdown ──────────────────────────────────────────────────────────────
+    else {
+        m_totalPages = m_engine->pageCount();
+    }
+
+    computeChapterBreaks();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// computeChapterBreaks — calcula as proporções 0..1 para os ticks do footer.
+//
+// Para EPUB: divide os capítulos de forma uniforme (sem informação de tamanho).
+// Para PDF : usa as páginas do TOC.
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualModeController::computeChapterBreaks()
+{
+    m_chapterBreaks.clear();
+    if (m_totalPages <= 0) return;
+
+    if (!m_spineUrls.isEmpty()) {
+        // EPUB — capítulos igualmente espaçados
+        for (int i = 0; i < m_chapterCount; ++i)
+            m_chapterBreaks.append(QVariant(static_cast<qreal>(i) / m_chapterCount));
+        m_chapterBreaks.append(QVariant(1.0));
+    } else {
+        // PDF — usa páginas do TOC para breaks reais
+        for (const TocItem& t : m_toc) {
+            if (t.page >= 0)
+                m_chapterBreaks.append(
+                    QVariant(static_cast<qreal>(t.page) / m_totalPages));
+        }
+        if (!m_chapterBreaks.isEmpty())
+            m_chapterBreaks.append(QVariant(1.0));
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// setCurrentPage — sincronizado a partir de MainWindow::onPageChanged()
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualModeController::setCurrentPage(int page)
+{
+    if (m_totalPages <= 0) return;
+
+    const int p = std::clamp(page, 0, m_totalPages - 1);
+    if (m_currentPage == p && m_hasDocument) return;
+    m_currentPage = p;
+
+    setReadingProgress(static_cast<qreal>(p + 1) / m_totalPages);
+    updateChapterTitle(p);
+
+    // Para EPUB, sincroniza também o índice de capítulo e o HTML
+    if (!m_spineUrls.isEmpty())
+        loadChapterContent(p);
+
+    emit currentPageChanged();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// setCurrentChapterIndex — navegação directa por capítulo (QML)
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualModeController::setCurrentChapterIndex(int index)
+{
+    if (m_spineUrls.isEmpty()) return;
+    const int i = std::clamp(index, 0, m_chapterCount - 1);
+    if (m_chapterIndex == i) return;
+    m_chapterIndex = i;
+
+    // Pede ao MainWindow que carregue o capítulo (não toca em QWebEngineView aqui)
+    emit chapterNavigationRequested(i);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// requestNextChapter / requestPrevChapter — botões do footer QML
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualModeController::requestNextChapter()
+{
+    setCurrentChapterIndex(m_chapterIndex + 1);
+}
+
+void CasualModeController::requestPrevChapter()
+{
+    setCurrentChapterIndex(m_chapterIndex - 1);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// loadChapterContent — lê o HTML do ficheiro de spine e popula m_chapterHtml.
+//
+// O índice é o índice na spine EPUB (= m_currentPage para EPUB).
+// Faz cache do último índice carregado — re-leitura desnecessária em
+// chamadas consecutivas para a mesma página.
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualModeController::loadChapterContent(int chapterIndex)
+{
+    if (chapterIndex < 0 || chapterIndex >= m_spineUrls.size()) return;
+    if (chapterIndex == m_loadedChapterIndex) return;   // já em cache
+
+    m_loadedChapterIndex = chapterIndex;
+    m_chapterIndex       = chapterIndex;
+    m_chapterUrl         = m_spineUrls.at(chapterIndex);
+
+    QFile f(m_chapterUrl.toLocalFile());
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        m_chapterHtml = QStringLiteral("<p>Erro ao carregar capítulo.</p>");
+        emit chapterChanged();
+        return;
+    }
+
+    const QString fullHtml = QString::fromUtf8(f.readAll());
+    m_chapterHtml = extractBodyContent(fullHtml);
+    emit chapterChanged();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// extractBodyContent — extrai o conteúdo do <body> de um documento HTML.
+//
+// O QRegularExpression usa DotMatchesEverything para lidar com HTML
+// multiline.  A captura é não-greedy (.*?) para parar no primeiro </body>,
+// necessário quando o documento contém body tags aninhadas (raro mas possível
+// em EPUBs mal formados).
+// ─────────────────────────────────────────────────────────────────────────────
+QString CasualModeController::extractBodyContent(const QString& fullHtml)
+{
+    static const QRegularExpression kBody(
+        QStringLiteral(R"(<body[^>]*>(.*?)</body>)"),
+        QRegularExpression::DotMatchesEverythingOption |
+        QRegularExpression::CaseInsensitiveOption);
+
+    const auto match = kBody.match(fullHtml);
+    if (match.hasMatch())
+        return match.captured(1).trimmed();
+
+    // Fallback: sem <body> — devolve o HTML completo (documentos EPUB simples)
+    return fullHtml;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// updateChapterTitle — procura no TOC o título mais próximo da posição actual.
+//
+// Para PDF  : usa o campo `page` das entradas (o maior page <= pageOrIndex).
+// Para EPUB : compara o URL da spine com o URL da entrada de TOC.
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualModeController::updateChapterTitle(int pageOrIndex)
+{
+    if (m_toc.isEmpty()) return;
+
+    if (!m_spineUrls.isEmpty()) {
+        // EPUB — corresponde por URL da spine
+        if (pageOrIndex < 0 || pageOrIndex >= m_spineUrls.size()) return;
+        const QString spineFile = m_spineUrls.at(pageOrIndex).fileName();
+
+        for (const TocItem& t : m_toc) {
+            if (t.url.fileName() == spineFile) {
+                setChapterTitle(t.title);
+                return;
+            }
+        }
+        // Sem correspondência exacta — mantém o título anterior
+    } else {
+        // PDF — última entrada com page <= pageOrIndex
+        QString best;
+        for (const TocItem& t : m_toc) {
+            if (t.page >= 0 && t.page <= pageOrIndex)
+                best = t.title;
+            else if (t.page > pageOrIndex)
+                break;
+        }
+        if (!best.isEmpty())
+            setChapterTitle(best);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers de estado simples
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualModeController::setReadingProgress(qreal progress)
+{
+    const qreal p = std::clamp(progress, 0.0, 1.0);
+    if (qFuzzyCompare(m_readingProgress, p)) return;
+    m_readingProgress = p;
+    emit readingProgressChanged();
 }
 
 void CasualModeController::setChapterTitle(const QString& title)
@@ -218,21 +282,25 @@ void CasualModeController::setChapterTitle(const QString& title)
     emit chapterTitleChanged();
 }
 
-void CasualModeController::setReadingProgress(qreal progress)
-{
-    const qreal p = std::clamp(progress, 0.0, 1.0);
-    if (qFuzzyCompare(m_readingProgress, p)) return;
-    m_readingProgress = p;
-    emit readingProgressChanged();
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Cores derivadas do tema
+// ─────────────────────────────────────────────────────────────────────────────
+QString CasualModeController::bgColor()     const noexcept { return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].bg);     }
+QString CasualModeController::textColor()   const noexcept { return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].text);   }
+QString CasualModeController::headerBg()    const noexcept { return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].header); }
+QString CasualModeController::accentColor() const noexcept { return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].accent); }
+QString CasualModeController::borderColor() const noexcept { return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].border); }
+QString CasualModeController::mutedColor()  const noexcept { return QString::fromLatin1(kPalettes[static_cast<int>(m_theme)].muted);  }
 
-void CasualModeController::setCurrentPage(int page)
+// ─────────────────────────────────────────────────────────────────────────────
+// Setters — tipografia, tema, painéis
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualModeController::setTheme(int theme)
 {
-    const int p = std::clamp(page, 1, m_totalPages);
-    if (m_currentPage == p) return;
-    m_currentPage = p;
-    setReadingProgress(static_cast<qreal>(p) / m_totalPages);
-    emit currentPageChanged();
+    const auto t = static_cast<Theme>(std::clamp(theme, 0, 3));
+    if (m_theme == t) return;
+    m_theme = t;
+    emit themeChanged();
 }
 
 void CasualModeController::setFontSize(int size)
@@ -274,11 +342,11 @@ void CasualModeController::setSearchOpen(bool open)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Invokable — acções de UI
+// Invokables — acções de UI
 // ─────────────────────────────────────────────────────────────────────────────
-void CasualModeController::increaseFontSize()  { setFontSize(m_fontSize + 1); }
-void CasualModeController::decreaseFontSize()  { setFontSize(m_fontSize - 1); }
+void CasualModeController::increaseFontSize()  { setFontSize(m_fontSize + 1);       }
+void CasualModeController::decreaseFontSize()  { setFontSize(m_fontSize - 1);       }
 void CasualModeController::increaseMargin()    { setColumnMargin(m_columnMargin + 8); }
 void CasualModeController::decreaseMargin()    { setColumnMargin(m_columnMargin - 8); }
-void CasualModeController::toggleSidebar()     { setSidebarOpen(!m_sidebarOpen); }
-void CasualModeController::toggleSearch()      { setSearchOpen(!m_searchOpen); }
+void CasualModeController::toggleSidebar()     { setSidebarOpen(!m_sidebarOpen);    }
+void CasualModeController::toggleSearch()      { setSearchOpen(!m_searchOpen);      }

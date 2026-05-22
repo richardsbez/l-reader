@@ -27,6 +27,8 @@
 #include <QCloseEvent>
 #include <memory>
 
+#include "CasualMode/CasualModeWidget.h"
+
 #include "DocumentEngine/document_engine.hpp"
 #include "DocumentEngine/toc_worker.hpp"
 #include "DocumentEngine/pdf_bookmark_manager.hpp"
@@ -47,7 +49,7 @@ const QDBusArgument &operator>>(const QDBusArgument &arg, PortalFilter &filter);
 
 class PdfCanvasView;
 
-enum class ViewIndex : int { Pdf = 0, Web = 1 };
+enum class ViewIndex : int { Pdf = 0, Web = 1, Casual = 2 };
 
 // ─── Índice de painéis no m_sideStack ────────────────────────────────────────
 enum class SidePanel : int {
@@ -88,8 +90,6 @@ private slots:
     void onPageChanged(int page);
     void onZoomChanged(qreal zoom);
     // Disparado pelo debounce timer após o zoom parar de mudar.
-    // Só então invalida o cache de renders com o novo DPI — evita uma
-    // avalanche de re-renders para cada nível intermediário de zoom.
     void onZoomSettled();
     void openFileDialog();
     void onPortalResponse(uint response, const QVariantMap &results);
@@ -99,68 +99,66 @@ private slots:
     void onWebUrlChanged(const QUrl& url);
 
     // ── TOC slots ─────────────────────────────────────────────────────────
-    // Recebe o resultado assíncrono do TocWorker e popula m_tocTree.
     void onTocReady(QList<TocEntry> entries);
-    // Chamado quando o TocWorker confirma que o documento não tem sumário.
     void onTocEmpty();
-    // Disparado por qualquer botão da sideIconBar; name = objectName do btn.
     void onSidePanelRequested(const QString& btnObjectName);
 
     // ── Bookmark slots ────────────────────────────────────────────────────
-    void onAddBookmarkClicked();                               // toggle marcador na página atual
-    void onBookmarksChanged(const QList<BookmarkEntry>& bm);  // atualiza painel lateral
-    void onBookmarkPageStatusChanged(int page);                // atualiza ícone preenchido/vazio
-    void onHighlightRequested(const HighlightEntry& h);        // cria highlight + atualiza painel
+    void onAddBookmarkClicked();
+    void onBookmarksChanged(const QList<BookmarkEntry>& bm);
+    void onBookmarkPageStatusChanged(int page);
+    void onHighlightRequested(const HighlightEntry& h);
 
     // ── Search slots ──────────────────────────────────────────────────────
-    void runSearch();   // busca texto no documento atual
+    void runSearch();
 
     // ── Gallery slots ──────────────────────────────────────────────────────
-    void populateGallery(int pageCount);           // cria N itens na lista
-    void onGalleryPageReady(int page);             // atualiza thumb quando cache entrega
-    void scheduleVisibleGalleryThumbs();           // agenda renders para itens visíveis
-    void updateGalleryItemBadges(int page);        // redesenha badges de marcador/highlight
+    void populateGallery(int pageCount);
+    void onGalleryPageReady(int page);
+    void scheduleVisibleGalleryThumbs();
+    void updateGalleryItemBadges(int page);
 
     // ── Kinetic scroll ─────────────────────────────────────────────────────
-    // Tick de 16 ms que decai a velocidade acumulada pelos eventos de roda.
     void onScrollTick();
 
 private:
-    void autoSaveToPdf();  // embute anotações/marcadores no PDF (estilo Okular)
-    [[nodiscard]] QPixmap paintBadges(const QPixmap& thumb, int page) const;  // badges galeria
+    void autoSaveToPdf();
+    [[nodiscard]] QPixmap paintBadges(const QPixmap& thumb, int page) const;
+
     // ── UI central ────────────────────────────────────────────────────────
     QStackedWidget*  m_stack      = nullptr;
     QScrollArea*     m_pdfScroll  = nullptr;
     PdfCanvasView*   m_pdfView    = nullptr;
     QWebEngineView*  m_webView    = nullptr;
+    CasualModeWidget* m_casualWidget = nullptr;
 
     // ── Toolbar principal (top) ───────────────────────────────────────────
     QToolBar*    m_toolbar        = nullptr;
 
     // ── Sidebar esquerda ──────────────────────────────────────────────────
-    QWidget*         m_sidebar        = nullptr;   // QDockWidget
-    QWidget*         m_sideIconBar    = nullptr;   // barra de ícones
-    QStackedWidget*  m_sideStack      = nullptr;   // painéis de conteúdo
+    QWidget*         m_sidebar        = nullptr;
+    QWidget*         m_sideIconBar    = nullptr;
+    QStackedWidget*  m_sideStack      = nullptr;
 
     // ── Painel TOC (index 0 em m_sideStack) ──────────────────────────────
-    QLabel*      m_sidebarTocLbl  = nullptr;   // rótulo "Sumário" / "Carregando…"
-    QTreeWidget* m_tocTree        = nullptr;   // árvore do sumário
+    QLabel*      m_sidebarTocLbl  = nullptr;
+    QTreeWidget* m_tocTree        = nullptr;
 
     // ── Painel de Busca (index 1 em m_sideStack) ─────────────────────────
-    QLineEdit*   m_searchInput   = nullptr;   // campo de texto
-    QListWidget* m_searchResults = nullptr;   // lista de ocorrências
-    QLabel*      m_searchStatus  = nullptr;   // "N resultado(s)" / erro
+    QLineEdit*   m_searchInput   = nullptr;
+    QListWidget* m_searchResults = nullptr;
+    QLabel*      m_searchStatus  = nullptr;
 
     // ── Painel de Galeria (index 2 em m_sideStack) ───────────────────────
-    QListWidget* m_galleryList  = nullptr;   // lista vertical de miniaturas
-    QLabel*      m_galleryEmpty = nullptr;   // placeholder "nenhum PDF aberto"
+    QListWidget* m_galleryList  = nullptr;
+    QLabel*      m_galleryEmpty = nullptr;
 
     // ── Painel de Marcadores (index 4 em m_sideStack) ────────────────────
-    QListWidget* m_bookmarkList    = nullptr;   // lista de entradas
-    QLabel*      m_bookmarkEmpty   = nullptr;   // placeholder "nenhum marcador"
-    QToolButton* m_addBookmarkBtn  = nullptr;   // botão fixado no fundo do sidebar
+    QListWidget* m_bookmarkList    = nullptr;
+    QLabel*      m_bookmarkEmpty   = nullptr;
+    QToolButton* m_addBookmarkBtn  = nullptr;
 
-    // ── Botão ativo na sideIconBar (controle de toggle visual) ───────────
+    // ── Botão ativo na sideIconBar ────────────────────────────────────────
     QToolButton* m_activeSideBtn  = nullptr;
 
     // ── Book info widget (Casual sidebar) ─────────────────────────────────
@@ -168,6 +166,10 @@ private:
     QLabel*      m_bookCoverLabel = nullptr;
     QLabel*      m_bookTitleLabel = nullptr;
     QLabel*      m_bookAuthorLabel= nullptr;
+
+    // ── Tab bar inferior da sidebar (Modo Casual) ─────────────────────────
+    // Alterna entre TOC (0), Anotações (3) e Marcadores (4)
+    QWidget*     m_casualTabBar   = nullptr;
 
     // ── Painel de anotações — Modo Estudo (dock direito) ──────────────────
     QDockWidget* m_annotDock      = nullptr;
@@ -218,28 +220,20 @@ private:
     std::unique_ptr<ModeManager>         m_modeManager;
     std::unique_ptr<PageCache>           m_pageCache;
     std::unique_ptr<SidecarManager>      m_sidecar;
-    std::unique_ptr<TocWorker>           m_tocWorker;       // worker assíncrono de TOC
+    std::unique_ptr<TocWorker>           m_tocWorker;
 
     // ── EPUB navigation state ─────────────────────────────────────────────
     QList<QUrl>  m_spineUrls;
     int          m_currentChapter = 0;
 
-    // ── Smooth scroll (navegação programática — goToPage, TOC, etc.) ──────
+    // ── Smooth scroll (navegação programática) ────────────────────────────
     QVariantAnimation* m_scrollAnim = nullptr;
 
     // ── Kinetic scroll (roda do mouse) ─────────────────────────────────────
-    // Modelo de física: cada notch da roda injeta um impulso em m_scrollVelocity.
-    // O timer de 16 ms (~60 fps) aplica atrito exponencial a cada frame até
-    // a velocidade cair abaixo de kKineticMinVelocity.
     QTimer* m_scrollKineticTimer  = nullptr;
-    qreal   m_scrollVelocity      = 0.0;   // px/frame, positivo = para baixo
+    qreal   m_scrollVelocity      = 0.0;
 
     // ── Zoom debounce ───────────────────────────────────────────────────────
-    // zoomChanged é emitido a cada frame da animação de zoom para atualizar
-    // o label "%".  Mas atualizar o DPI do PageCache (e invalidar renders) a
-    // cada frame seria um desperdício — só fazemos quando o zoom para.
-    // m_zoomDebounceTimer dispara onZoomSettled() após kZoomDebounceMs de
-    // silêncio, momento em que o DPI é de fato atualizado.
     QTimer* m_zoomDebounceTimer = nullptr;
     qreal   m_pendingZoom       = 1.0;
 
@@ -247,7 +241,7 @@ private:
     QFileSystemWatcher* m_cssWatcher    = nullptr;
     QString             m_currentSsPath;
 
-    // ── Helpers de construção ─────────────────────────────────────────────
+    // ── Helpers de construção (main_window_ui.cpp) ────────────────────────
     void buildUi();
     void buildActions();
     void buildMenuBar();
@@ -256,27 +250,39 @@ private:
     void buildBottomNav();
     void buildChapterHeader();
     void buildStatusBar();
-    void wireSignals();
 
     // ── Helpers de runtime ────────────────────────────────────────────────
     void switchView(ViewIndex idx);
     void updatePageIndicator(int page, int total);
     void updateProgressLabel(int page, int total);
 
-    // ── TOC helpers ───────────────────────────────────────────────────────
+    // ── TOC helpers (main_window_toc.cpp) ─────────────────────────────────
     void populateTocTree(const QList<TocEntry>& entries);
-    void highlightTocEntry(int page);   // sincroniza seleção ao mudar de página (PDF)
+    void highlightTocEntry(int page);
     void showSidePanel(SidePanel panel, bool forceOpen = true);
 
-    // ── Bookmark helpers ──────────────────────────────────────────────────
+    // ── Bookmark helpers (main_window_bookmarks.cpp) ──────────────────────
     void populateBookmarkPanel(const QList<BookmarkEntry>& bookmarks);
-    void updateAddBookmarkBtnState(int page);  // ícone solid/outline p/ página atual
-    void saveBookmarksAsync();                 // JSON sidecar (rápido)
-    void addBookmarkItemWidget(const BookmarkEntry& bm); // adiciona 1 item à lista
+    void updateAddBookmarkBtnState(int page);
+    void saveBookmarksAsync();
+    void addBookmarkItemWidget(const BookmarkEntry& bm);
 
-    // ── EPUB helpers ──────────────────────────────────────────────────────
+    // ── EPUB helpers (main_window_epub.cpp) ───────────────────────────────
     void loadEpubChapter(int index);
     void injectEpubCSS();
 
     [[nodiscard]] QString notesDir() const;
+
+    // ── Wire helpers — cada subsistema conecta os próprios sinais ─────────
+    // Implementados no .cpp de cada subsistema; chamados por wireSignals().
+    void wireSignals();
+    void wireScrollSignals();
+    void wirePageZoomSignals();
+    void wireTocSignals();
+    void wireBookmarkSignals();
+    void wireHighlightSignals();
+    void wireGallerySignals();
+    void wireEpubSignals();
+    void wireModeSignals();
+    void wireDocumentSignals();
 };

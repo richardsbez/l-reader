@@ -43,6 +43,7 @@ find_package(Qt6 6.4 REQUIRED COMPONENTS
     DBus
     Svg
     Quick               # Motor QML — CasualModeView
+    QuickWidgets        # QQuickWidget — embebe QML dentro do QWidget app
     QuickControls2      # Popup, TabBar, ScrollView, etc.
     Qml                 # QML_ELEMENT / QML_SINGLETON
 )
@@ -139,6 +140,15 @@ target_sources(l-reader
         src/ViewLayer/pdf_canvas_view.hpp
     PRIVATE
         src/ViewLayer/main_window.cpp
+        src/ViewLayer/main_window_ui.cpp
+        src/ViewLayer/main_window_document.cpp
+        src/ViewLayer/main_window_scroll.cpp
+        src/ViewLayer/main_window_page.cpp
+        src/ViewLayer/main_window_epub.cpp
+        src/ViewLayer/main_window_toc.cpp
+        src/ViewLayer/main_window_bookmarks.cpp
+        src/ViewLayer/main_window_gallery.cpp
+        src/ViewLayer/main_window_search.cpp
         src/ViewLayer/pdf_canvas_view.cpp
 )
 
@@ -149,8 +159,10 @@ target_sources(l-reader PRIVATE src/resources.qrc)
 target_sources(l-reader
     PUBLIC FILE_SET HEADERS BASE_DIRS src FILES
         src/CasualMode/CasualModeController.h
+        src/CasualMode/CasualModeWidget.h      # Q_OBJECT → precisa de .cpp para vtable
     PRIVATE
         src/CasualMode/CasualModeController.cpp
+        src/CasualMode/CasualModeWidget.cpp    # unidade mínima que activa o AUTOMOC
 )
 
 # ── QML Module — Modo Casual (requer Qt 6.4+) ─────────────────────────────────
@@ -192,7 +204,8 @@ target_link_libraries(l-reader PRIVATE
     Qt6::DBus
     Qt6::Svg
     Qt6::Qml              # QML_ELEMENT, QQmlContext, QQmlApplicationEngine
-    Qt6::Quick            # QQuickWidget — hospeda CasualModeView no QWidget app
+    Qt6::Quick            # motor QML (QQuickItem, QQuickWindow, etc.)
+    Qt6::QuickWidgets     # QQuickWidget — hospeda CasualModeView no QWidget app
     Qt6::QuickControls2   # Popup, TabBar, ScrollView, ScrollBar
 )
 
@@ -283,5 +296,3 @@ message(STATUS " Build type : ${CMAKE_BUILD_TYPE}")
 message(STATUS " Compilador : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS " Qt6        : ${Qt6_VERSION}")
 message(STATUS "──────────────────────────────────────────")
-
-
