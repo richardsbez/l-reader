@@ -1,10 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/qml/casual/CasualModeHeader.qml  —  l-reader · Modo Casual
+// CasualModeHeader.qml  —  l-reader · Modo Casual
 //
-// HeaderBar minimalista que se funde com a cor de fundo do tema.
-// Layout:  [ ≡ | Título do Capítulo ]  ·····  [ 🔍 | Aa ]
+// Espelha o layout da Image 2 (Apple Books / Kindle desktop):
 //
-// Altura fixa: 44 px (espelha Layout::Toolbar::kSideToggleSize do C++)
+//   ┌────────────────────────┬────────────────────────────────────────┐
+//   │   Heróis & Vilões      │           CAPÍTULO 1                   │
+//   └────────────────────────┴────────────────────────────────────────┘
+//
+// Título do livro alinhado ao centro da página esquerda.
+// Título do capítulo alinhado ao centro da página direita.
+// Altura: 32px (discreto, editorial).
 // ─────────────────────────────────────────────────────────────────────────────
 import QtQuick
 import QtQuick.Controls.Basic
@@ -12,168 +17,121 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
-    height: 44
+    height: 32
     color:  casualCtrl.headerBg
 
     Behavior on color {
         ColorAnimation { duration: 220; easing.type: Easing.OutQuad }
     }
 
-    // ── Popover de configurações (instanciado aqui, acedido pelo botão Aa) ───
+    // Popover de configurações (acessado pelo botão Aa no canto direito)
     TextSettingsPopover {
         id: settingsPopover
-        // Ancora o popup abaixo do botão de configurações
         parent: settingsBtn
-        x: settingsBtn.width - width      // alinha à direita do botão
+        x: settingsBtn.width - width
         y: settingsBtn.height + 4
     }
 
-    // ── Layout principal — Row com três zonas ─────────────────────────────────
     RowLayout {
-        anchors {
-            fill:           parent
-            leftMargin:     8
-            rightMargin:    8
-        }
+        anchors.fill: parent
         spacing: 0
 
-        // ────────────────────────────────────────────────────────────────────
-        // ZONA ESQUERDA — toggle da sidebar + título do capítulo
-        // ────────────────────────────────────────────────────────────────────
-        RowLayout {
-            spacing: 4
-            Layout.alignment: Qt.AlignVCenter
+        // ── Metade esquerda: título do livro ──────────────────────────────
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-            // Botão de toggle da sidebar
-            HeaderIconButton {
-                id:        sidebarBtn
-                iconText:  "☰"
-                toolTip:   "Alternar painel lateral"
-                checked:   casualCtrl.sidebarOpen
-                onClicked: casualCtrl.toggleSidebar()
-            }
-
-            // Separador visual fino
-            Rectangle {
-                width:  1
-                height: 18
-                color:  casualCtrl.borderColor
-                opacity: 0.6
-                Layout.alignment: Qt.AlignVCenter
-            }
-
-            // Título do capítulo — truncado com elipsis se necessário
             Text {
-                id: chapterLabel
-                Layout.maximumWidth: 320
-                text:      casualCtrl.chapterTitle
-                elide:     Text.ElideRight
-                font {
-                    family:    "Georgia, serif"
-                    pixelSize: 13
-                    weight:    Font.Normal
-                }
-                color:   casualCtrl.mutedColor
-                opacity: 0.85
+                anchors.centerIn: parent
+                text:  casualCtrl.bookTitle
+                color: casualCtrl.mutedColor
+                font { pixelSize: 11; family: "Georgia, serif"; italic: true }
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                width: parent.width - 24
+                horizontalAlignment: Text.AlignHCenter
 
-                Behavior on color {
-                    ColorAnimation { duration: 200 }
-                }
+                Behavior on color { ColorAnimation { duration: 200 } }
             }
         }
 
-        // ────────────────────────────────────────────────────────────────────
-        // ZONA CENTRAL — espaçador flexível
-        // ────────────────────────────────────────────────────────────────────
-        Item { Layout.fillWidth: true }
-
-        // ────────────────────────────────────────────────────────────────────
-        // ZONA DIREITA — pesquisa + configurações de texto
-        // ────────────────────────────────────────────────────────────────────
-        RowLayout {
-            spacing: 2
+        // ── Divisor central (alinhado com o gutter das páginas) ───────────
+        Rectangle {
+            width:  1
+            height: 16
+            color:  casualCtrl.borderColor
+            opacity: 0.4
             Layout.alignment: Qt.AlignVCenter
+        }
 
-            // Botão de pesquisa (lupa)
-            HeaderIconButton {
-                id:        searchBtn
-                iconText:  "🔍"
-                toolTip:   "Pesquisar no texto"
-                checked:   casualCtrl.searchOpen
-                onClicked: casualCtrl.toggleSearch()
+        // ── Metade direita: título do capítulo + botão Aa ─────────────────
+        Item {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+
+            // Título do capítulo centralizado
+            Text {
+                anchors.centerIn: parent
+                text:  casualCtrl.chapterTitle.toUpperCase()
+                color: casualCtrl.mutedColor
+                font { pixelSize: 11; family: "Georgia, serif"; letterSpacing: 0.8 }
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                width: parent.width - 48
+                horizontalAlignment: Text.AlignHCenter
+
+                Behavior on color { ColorAnimation { duration: 200 } }
             }
 
-            // Botão de configurações tipográficas (Aa)
+            // Botão Aa — fixado à direita
             HeaderIconButton {
-                id:        settingsBtn
-                // Usa texto "Aa" em vez de ícone para máximo minimalismo
+                id: settingsBtn
+                anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 6 }
                 iconText:  "Aa"
-                toolTip:   "Configurações de leitura"
-                checked:   settingsPopover.visible
-                font.pixelSize: 12
-                font.weight:    Font.Medium
-                onClicked: {
-                    if (settingsPopover.visible)
-                        settingsPopover.close()
-                    else
-                        settingsPopover.open()
-                }
+                toolTip:   "Configurações de texto"
+                font.pixelSize: 11
+                onClicked: settingsPopover.visible = !settingsPopover.visible
             }
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // Componente interno — botão de ícone discreto para o header
-    // Separado num type inline para reutilização sem ficheiro extra
-    // ─────────────────────────────────────────────────────────────────────────────
+    // ── Componente local: botão de ícone ──────────────────────────────────
     component HeaderIconButton: Rectangle {
-        id: btn
-
-        // API pública
-        property string iconText:  ""
-        property string toolTip:   ""
-        property bool   checked:   false
-        property alias  font:      label.font
+        id: iconBtn
+        property string iconText: ""
+        property string toolTip:  ""
+        property bool   checked:  false
 
         signal clicked()
 
-        width:  34
-        height: 30
+        width:  28; height: 24
         radius: 6
-        color:  btnArea.containsMouse
-                    ? Qt.alpha(casualCtrl.textColor, 0.08)
-                    : checked
-                        ? Qt.alpha(casualCtrl.accentColor, 0.12)
-                        : "transparent"
+        color: btnArea.containsMouse
+                   ? Qt.alpha(casualCtrl.textColor, checked ? 0.12 : 0.07)
+                   : checked
+                       ? Qt.alpha(casualCtrl.accentColor, 0.14)
+                       : "transparent"
 
-        Behavior on color {
-            ColorAnimation { duration: 120 }
-        }
+        Behavior on color { ColorAnimation { duration: 100 } }
 
-        // Label central
         Text {
-            id: label
             anchors.centerIn: parent
-            text:  btn.iconText
-            color: btn.checked ? casualCtrl.accentColor : casualCtrl.mutedColor
-            font.pixelSize: 14
-
-            Behavior on color {
-                ColorAnimation { duration: 150 }
-            }
+            text:  iconBtn.iconText
+            color: iconBtn.checked ? casualCtrl.accentColor : casualCtrl.mutedColor
+            font:  iconBtn.font
+            Behavior on color { ColorAnimation { duration: 100 } }
         }
 
-        // Tooltip nativo
-        ToolTip.visible:  btnArea.containsMouse && btn.toolTip.length > 0
-        ToolTip.text:     btn.toolTip
-        ToolTip.delay:    700
+        ToolTip.visible: btnArea.containsMouse && iconBtn.toolTip.length > 0
+        ToolTip.text:    iconBtn.toolTip
+        ToolTip.delay:   600
 
         MouseArea {
-            id:          btnArea
+            id: btnArea
             anchors.fill: parent
-            hoverEnabled: true
-            cursorShape:  Qt.PointingHandCursor
-            onClicked:    btn.clicked()
+            hoverEnabled:  true
+            cursorShape:   Qt.PointingHandCursor
+            onClicked:     iconBtn.clicked()
         }
     }
 }

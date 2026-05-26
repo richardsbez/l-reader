@@ -25,7 +25,7 @@
 #include <QtQml/QQmlEngine>
 #include <QtQuickControls2/QQuickStyle>
 
-#include "CasualModeController.h"
+#include "casual_mode_controller.hpp"
 
 class CasualModeWidget final : public QQuickWidget
 {
@@ -50,24 +50,32 @@ public:
 
         // ── 3. Comportamento do widget ────────────────────────────────────────
         setResizeMode(QQuickWidget::SizeRootObjectToView);
-        setAttribute(Qt::WA_OpaquePaintEvent);       // evita flicker no resize
+        setAttribute(Qt::WA_OpaquePaintEvent);
         setAttribute(Qt::WA_NoSystemBackground);
 
-        // ── 4. Carregar o QML raiz ────────────────────────────────────────────
-        // O caminho resulta de:
-        //   RESOURCE_PREFIX "/LReader"  +  URI "LReader.Casual"  → pasta "LReader/Casual"
-        //   + nome do ficheiro QML
-        setSource(QUrl(QStringLiteral(
-            "qrc:/LReader/LReader/Casual/CasualModeView.qml"
-        )));
+        // ── 4. QML carregado no primeiro showEvent ────────────────────────────
+        // Adiado para evitar crash ao iniciar se o widget nunca for exibido
+        // (ex.: usuário abre PDF e nunca ativa o modo Casual EPUB).
     }
 
-    // Acesso ao controller para configuração externa (ex: ModeManager)
     [[nodiscard]] CasualModeController* controller() const noexcept
     {
         return m_controller;
     }
 
+protected:
+    void showEvent(QShowEvent* event) override
+    {
+        if (!m_qmlLoaded) {
+            m_qmlLoaded = true;
+            setSource(QUrl(QStringLiteral(
+                "qrc:/LReader/LReader/Casual/CasualModeView.qml"
+            )));
+        }
+        QQuickWidget::showEvent(event);
+    }
+
 private:
     CasualModeController* const m_controller;
+    bool                        m_qmlLoaded = false;
 };

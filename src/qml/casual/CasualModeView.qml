@@ -1,12 +1,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/qml/casual/CasualModeView.qml  —  l-reader · Modo Casual
+// CasualModeView.qml  —  l-reader · Modo Casual
 //
-// Mudanças em relação à versão anterior:
-//   • leftText.text usa casualCtrl.chapterHtml (HTML real do documento)
-//   • rightText removido — conteúdo completo numa única coluna scrollável
-//   • columnDivider removido
-//   • Placeholder "Abra um documento..." mostrado quando !casualCtrl.hasDocument
-//   • Botões de capítulo anterior/próximo no footer usam as invokables reais
+// Layout de duas páginas lado a lado (book spread), paginação horizontal.
+// Inspirado no Kindle Cloud Reader / Apple Books desktop.
+//
+// ┌──────────────────────────────────────────────────────────────────────┐
+// │  Título obra          │         Capítulo X                          │  ← header 32px
+// ├──────────────────────────────────────────────────────────────────────┤
+// │                       │                                             │
+// │   Página esquerda     │   Página direita                           │
+// │   (texto coluna 1)    │   (texto coluna 2)                         │
+// │                       │                                             │
+// │                       │                                             │
+// ├──────────────────────────────────────────────────────────────────────┤
+// │  ‹  Loc. 30 of 527    │████████░░░░░░░░│    Loc. 31 of 527  ›     │  ← footer 32px
+// └──────────────────────────────────────────────────────────────────────┘
+//
+// Navegação:
+//   • Click na metade esquerda / tecla ← / botão ‹  → página anterior
+//   • Click na metade direita  / tecla → / botão ›  → página seguinte
+//   • Swipe horizontal com touchpad/touch
 // ─────────────────────────────────────────────────────────────────────────────
 import QtQuick
 import QtQuick.Controls.Basic
@@ -17,42 +30,27 @@ Item {
     implicitWidth:  900
     implicitHeight: 600
 
-    // ── Fundo ─────────────────────────────────────────────────────────────────
+    // ── Fundo geral (cor do tema) ─────────────────────────────────────────────
     Rectangle {
         id: background
         anchors.fill: parent
         color: casualCtrl.bgColor
-
-        Behavior on color {
-            ColorAnimation { duration: 220; easing.type: Easing.OutQuad }
-        }
+        Behavior on color { ColorAnimation { duration: 220; easing.type: Easing.OutQuad } }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Sidebar
+    // Sidebar QWidget (gerida pelo C++) — este QML não a controla.
+    // CasualModeSidebar.qml mantido apenas para compatibilidade de imports.
     // ─────────────────────────────────────────────────────────────────────────
-    CasualModeSidebar {
-        id: sidebar
-        anchors {
-            top:    parent.top
-            bottom: parent.bottom
-            left:   parent.left
-        }
-    }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Área de conteúdo principal
+    // ÁREA DE CONTEÚDO PRINCIPAL (ocupa tudo — sidebar QWidget fica sobre)
     // ─────────────────────────────────────────────────────────────────────────
     Item {
         id: contentArea
-        anchors {
-            top:    parent.top
-            bottom: parent.bottom
-            left:   sidebar.right
-            right:  parent.right
-        }
+        anchors.fill: parent
 
-        // ── Header ────────────────────────────────────────────────────────────
+        // ── Header ─────────────────────────────────────────────────────────
         CasualModeHeader {
             id: header
             anchors { top: parent.top; left: parent.left; right: parent.right }
@@ -63,10 +61,10 @@ Item {
             anchors { top: header.bottom; left: parent.left; right: parent.right }
             height: 1
             color:  casualCtrl.borderColor
-            opacity: 0.6
+            opacity: 0.5
         }
 
-        // ── Área de leitura ───────────────────────────────────────────────────
+        // ── Área de leitura (book spread) ────────────────────────────────────
         Item {
             id: readingArea
             anchors {
@@ -76,105 +74,265 @@ Item {
                 right:  parent.right
             }
 
-            // ── Placeholder quando não há documento aberto ────────────────────
+            // ── Placeholder ───────────────────────────────────────────────────
             Item {
                 anchors.fill: parent
                 visible: !casualCtrl.hasDocument
 
                 Column {
                     anchors.centerIn: parent
-                    spacing: 8
+                    spacing: 10
 
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "📖"
-                        font.pixelSize: 40
-                        opacity: 0.25
+                        font.pixelSize: 48
+                        opacity: 0.2
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: "Abra um documento para começar a ler"
                         font.pixelSize: 14
                         color: casualCtrl.mutedColor
-                        opacity: 0.7
+                        opacity: 0.6
                     }
                 }
             }
 
-            // ── Conteúdo real ─────────────────────────────────────────────────
-            // Única coluna scrollável com o HTML do capítulo actual.
-            // A largura máxima do texto segue casualCtrl.columnMargin para
-            // manter as linhas confortáveis (60-75 caracteres).
-            Flickable {
-                id:      chapterFlickable
+            // ── Book spread: duas colunas de texto ────────────────────────────
+            Item {
+                id: spread
+                anchors.fill: parent
                 visible: casualCtrl.hasDocument
-                anchors {
-                    fill:        parent
-                    topMargin:   0
-                    bottomMargin: 0
-                }
-                contentWidth:  width
-                contentHeight: chapterText.implicitHeight + 80
 
-                // Sincroniza o progresso de leitura com a posição do scroll.
-                // Emite apenas quando o utilizador faz scroll manual (não
-                // quando o controller muda a página programaticamente).
-                onContentYChanged: {
-                    if (!moving) return
-                    const maxY = contentHeight - height
-                    if (maxY <= 0) return
-                    // O progresso do controller já considera a página; aqui
-                    // refinamos dentro do capítulo (contribuição do scroll).
-                    // Mantemos simples: não interferimos com setCurrentPage().
+                // Gutter (linha central separando as duas páginas)
+                Rectangle {
+                    id: gutter
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top:    parent.top
+                    anchors.bottom: parent.bottom
+                    width: 2
+                    color: casualCtrl.borderColor
+                    opacity: 0.25
                 }
 
-                // Reset ao scroll ao mudar de capítulo
+                // ── Sombra interna das páginas (borda sutil) ──────────────────
+                // Página esquerda
+                Rectangle {
+                    anchors {
+                        top: parent.top; bottom: parent.bottom
+                        left: parent.left; right: gutter.left
+                    }
+                    color: casualCtrl.bgColor
+                    Behavior on color { ColorAnimation { duration: 220 } }
+
+                    // Texto da página esquerda
+                    Flickable {
+                        id: leftPage
+                        anchors {
+                            fill: parent
+                            leftMargin:  pageMargin
+                            rightMargin: pageMargin / 2
+                            topMargin:   pageTopMargin
+                            bottomMargin: pageTopMargin
+                        }
+                        clip: true
+                        interactive: false  // paginação por clique, não scroll
+                        contentWidth:  width
+                        contentHeight: leftText.implicitHeight
+
+                        readonly property int pageMargin:    Math.max(32, parent.width * 0.08)
+                        readonly property int pageTopMargin: 28
+
+                        Text {
+                            id: leftText
+                            width: parent.width
+                            text: casualCtrl.chapterHtml.length > 0 ? casualCtrl.chapterHtml : ""
+                            textFormat: Text.RichText
+                            wrapMode:   Text.WrapAtWordBoundaryOrAnywhere
+                            horizontalAlignment: Text.AlignJustify
+                            font.family:    "Georgia, 'Times New Roman', serif"
+                            font.pixelSize: casualCtrl.fontSize
+                            lineHeight:     casualCtrl.fontSize * 1.75 + casualCtrl.lineSpacing
+                            lineHeightMode: Text.FixedHeight
+                            color: casualCtrl.textColor
+
+                            Behavior on color          { ColorAnimation { duration: 220 } }
+                            Behavior on font.pixelSize { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+                        }
+                    }
+
+                    // Número de página esquerda (canto inferior)
+                    Text {
+                        anchors {
+                            bottom: parent.bottom
+                            horizontalCenter: parent.horizontalCenter
+                            bottomMargin: 8
+                        }
+                        text: casualCtrl.totalPages > 0
+                              ? "Loc. %1 of %2".arg(casualCtrl.currentPage * 2 + 1)
+                                               .arg(casualCtrl.totalPages)
+                              : ""
+                        color: casualCtrl.mutedColor
+                        font.pixelSize: 11
+                        font.family: "Georgia, serif"
+                        opacity: 0.7
+                    }
+                }
+
+                // Página direita
+                Rectangle {
+                    anchors {
+                        top: parent.top; bottom: parent.bottom
+                        left: gutter.right; right: parent.right
+                    }
+                    color: casualCtrl.bgColor
+                    Behavior on color { ColorAnimation { duration: 220 } }
+
+                    // Texto da página direita — offset para continuar da esquerda
+                    Flickable {
+                        id: rightPage
+                        anchors {
+                            fill: parent
+                            leftMargin:  pageMargin / 2
+                            rightMargin: pageMargin
+                            topMargin:   pageTopMargin
+                            bottomMargin: pageTopMargin
+                        }
+                        clip: true
+                        interactive: false
+                        contentWidth:  width
+                        contentHeight: rightText.implicitHeight
+
+                        // O conteúdo da direita é o mesmo HTML mas com offset vertical
+                        // equivalente à altura de uma "página" da coluna esquerda.
+                        contentY: leftPage.height > 0 ? leftPage.height : 0
+
+                        readonly property int pageMargin:    Math.max(32, parent.width * 0.08)
+                        readonly property int pageTopMargin: 28
+
+                        Text {
+                            id: rightText
+                            width: parent.width
+                            text: casualCtrl.chapterHtml.length > 0 ? casualCtrl.chapterHtml : ""
+                            textFormat: Text.RichText
+                            wrapMode:   Text.WrapAtWordBoundaryOrAnywhere
+                            horizontalAlignment: Text.AlignJustify
+                            font.family:    "Georgia, 'Times New Roman', serif"
+                            font.pixelSize: casualCtrl.fontSize
+                            lineHeight:     casualCtrl.fontSize * 1.75 + casualCtrl.lineSpacing
+                            lineHeightMode: Text.FixedHeight
+                            color: casualCtrl.textColor
+
+                            Behavior on color          { ColorAnimation { duration: 220 } }
+                            Behavior on font.pixelSize { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+                        }
+                    }
+
+                    // Número de página direita
+                    Text {
+                        anchors {
+                            bottom: parent.bottom
+                            horizontalCenter: parent.horizontalCenter
+                            bottomMargin: 8
+                        }
+                        text: casualCtrl.totalPages > 0
+                              ? "Loc. %1 of %2".arg(casualCtrl.currentPage * 2 + 2)
+                                               .arg(casualCtrl.totalPages)
+                              : ""
+                        color: casualCtrl.mutedColor
+                        font.pixelSize: 11
+                        font.family: "Georgia, serif"
+                        opacity: 0.7
+                    }
+                }
+
+                // ── Zonas de clique para virar página ─────────────────────────
+                // Esquerda: página anterior (⅓ esquerdo)
+                MouseArea {
+                    id: prevClickZone
+                    anchors {
+                        top: parent.top; bottom: parent.bottom
+                        left: parent.left
+                    }
+                    width: parent.width / 3
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: casualCtrl.currentPage > 0
+                    onClicked: {
+                        pageFlipAnim.direction = "prev"
+                        pageFlipAnim.restart()
+                        casualCtrl.requestPrevChapter()
+                    }
+                }
+
+                // Direita: página seguinte (⅓ direito)
+                MouseArea {
+                    id: nextClickZone
+                    anchors {
+                        top: parent.top; bottom: parent.bottom
+                        right: parent.right
+                    }
+                    width: parent.width / 3
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: casualCtrl.currentPage < casualCtrl.totalPages - 1
+                    onClicked: {
+                        pageFlipAnim.direction = "next"
+                        pageFlipAnim.restart()
+                        casualCtrl.requestNextChapter()
+                    }
+                }
+
+                // ── Animação de virada de página ──────────────────────────────
+                SequentialAnimation {
+                    id: pageFlipAnim
+                    property string direction: "next"
+
+                    NumberAnimation {
+                        target: spread
+                        property: "opacity"
+                        to: 0.0
+                        duration: 120
+                        easing.type: Easing.InQuad
+                    }
+                    NumberAnimation {
+                        target: spread
+                        property: "opacity"
+                        to: 1.0
+                        duration: 160
+                        easing.type: Easing.OutQuad
+                    }
+                }
+
+                // Reset do scroll ao mudar capítulo
                 Connections {
                     target: casualCtrl
                     function onChapterChanged() {
-                        chapterFlickable.contentY = 0
+                        leftPage.contentY  = 0
+                        rightPage.contentY = leftPage.height > 0 ? leftPage.height : 0
+                        pageFlipAnim.restart()
                     }
                 }
 
-                ScrollBar.vertical: ScrollBar {
-                    policy: ScrollBar.AsNeeded
-                    opacity: 0.4
-                }
+                // ── Swipe horizontal (trackpad / touch) ───────────────────────
+                SwipeView {
+                    id: swipeDetector
+                    anchors.fill: parent
+                    interactive: true
+                    opacity: 0  // invisível — apenas detecta gestos
+                    currentIndex: 1  // posição central
 
-                // ── Texto do capítulo ─────────────────────────────────────────
-                Text {
-                    id: chapterText
+                    Item {}  // página "anterior" (dummy)
+                    Item {}  // página "actual"
+                    Item {}  // página "seguinte" (dummy)
 
-                    // Margem lateral reactiva ao controlador (estilo e-reader)
-                    x:     casualCtrl.columnMargin
-                    width: parent.width - 2 * casualCtrl.columnMargin
-                    y:     40
-
-                    // Conteúdo HTML real (body do ficheiro EPUB)
-                    // Para PDF, chapterHtml fica vazio — o PdfCanvasView
-                    // é mantido no stack central; este widget não é mostrado.
-                    text:       casualCtrl.chapterHtml.length > 0
-                                    ? casualCtrl.chapterHtml
-                                    : ""
-                    textFormat: Text.RichText
-                    wrapMode:   Text.WrapAtWordBoundaryOrAnywhere
-                    horizontalAlignment: Text.AlignJustify
-
-                    // Tipografia
-                    font.family:    "Georgia, 'Times New Roman', serif"
-                    font.pixelSize: casualCtrl.fontSize
-                    lineHeight:     casualCtrl.fontSize * 1.75 + casualCtrl.lineSpacing
-                    lineHeightMode: Text.FixedHeight
-                    color:          casualCtrl.textColor
-
-                    Behavior on color {
-                        ColorAnimation { duration: 220 }
-                    }
-                    Behavior on font.pixelSize {
-                        NumberAnimation { duration: 120; easing.type: Easing.OutQuad }
-                    }
-                    Behavior on x {
-                        NumberAnimation { duration: 160; easing.type: Easing.OutQuad }
+                    onCurrentIndexChanged: {
+                        if (currentIndex === 0) {
+                            casualCtrl.requestPrevChapter()
+                            currentIndex = 1
+                        } else if (currentIndex === 2) {
+                            casualCtrl.requestNextChapter()
+                            currentIndex = 1
+                        }
                     }
                 }
             }
@@ -184,32 +342,14 @@ Item {
             id: footerDivider
             anchors { bottom: footer.top; left: parent.left; right: parent.right }
             height: 1
-            color:  casualCtrl.borderColor
-            opacity: 0.6
+            color: casualCtrl.borderColor
+            opacity: 0.5
         }
 
-        // ── Footer ────────────────────────────────────────────────────────────
+        // ── Footer ─────────────────────────────────────────────────────────
         CasualModeFooter {
             id: footer
             anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
-        }
-    }
-
-    // ── Overlay de sombra da sidebar ──────────────────────────────────────────
-    Rectangle {
-        anchors.fill: parent
-        color: "#000000"
-        opacity: casualCtrl.sidebarOpen ? 0.22 : 0.0
-        visible: opacity > 0.0
-
-        Behavior on opacity {
-            NumberAnimation { duration: 260; easing.type: Easing.OutCubic }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            onClicked: casualCtrl.setSidebarOpen(false)
-            cursorShape: Qt.ArrowCursor
         }
     }
 }

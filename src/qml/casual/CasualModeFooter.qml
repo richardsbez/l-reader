@@ -63,22 +63,16 @@ Item {
                     }
                 }
 
-                // Informação de página
+                // Informação de página — esquerda
                 Text {
                     text: {
-                        if (casualCtrl.chapterCount > 0) {
-                            // EPUB — mostra capítulo
-                            return "Cap. %1 de %2".arg(casualCtrl.currentPage + 1)
-                                                  .arg(casualCtrl.totalPages)
-                        }
-                        // PDF — mostra página
-                        return "Página %1 de %2".arg(casualCtrl.currentPage + 1)
-                                                .arg(casualCtrl.totalPages)
+                        if (!casualCtrl.hasDocument) return ""
+                        return "Loc. %1 of %2".arg(casualCtrl.currentPage * 2 + 1)
+                                              .arg(casualCtrl.totalPages)
                     }
                     color: casualCtrl.mutedColor
                     font { pixelSize: 11; family: "Georgia, serif"; letterSpacing: 0.2 }
                     leftPadding: casualCtrl.chapterCount > 0 ? 4 : 0
-
                     Behavior on color { ColorAnimation { duration: 200 } }
                 }
 
@@ -99,14 +93,16 @@ Item {
 
                 Item { Layout.fillWidth: true }
 
-                // Percentagem
+                // Percentagem / Loc. direita
                 Text {
-                    text:  "%1%".arg(Math.round(casualCtrl.readingProgress * 100))
+                    text: casualCtrl.hasDocument
+                          ? "Loc. %1 of %2".arg(casualCtrl.currentPage * 2 + 2)
+                                           .arg(casualCtrl.totalPages)
+                          : ""
                     color: casualCtrl.mutedColor
                     font.pixelSize: 11
                     font.family:    "Georgia, serif"
                     rightPadding:   casualCtrl.chapterCount > 0 ? 4 : 0
-
                     Behavior on color { ColorAnimation { duration: 200 } }
                 }
 

@@ -5,6 +5,7 @@
 
 #include "main_window.hpp"
 #include "pdf_canvas_view.hpp"
+#include "casual_pdf_view.hpp"
 #include "bookmark_item_widget.hpp"
 
 #include "Ui/layout_tokens.hpp"
@@ -59,36 +60,38 @@ void MainWindow::buildUi()
     sideLayout->setSpacing(Layout::Structural::kNoSpacing);
 
     // ── Book info widget (visível apenas no Modo Casual) ─────────────────
-    // Inspirado na sidebar do Kindle/Thorium: capa compacta à esquerda,
-    // título + autor à direita, altura total ~88px.
     //
-    //  ┌────────────────────────────────────────┐
-    //  │ ┌──────┐  Moby Dick                    │
-    //  │ │ capa │  Herman Melville               │
-    //  │ │      │  ──── p.12 / 342 ─── 3%       │
-    //  │ └──────┘                                │
-    //  └────────────────────────────────────────┘
+    //  ┌─────────────────────────────────────────────────┐
+    //  │                                                 │  ← 16px padding top
+    //  │  ┌──────────┐  Race, Evolution,                 │
+    //  │  │          │  and Behavior                     │  ← título word-wrap
+    //  │  │   capa   │                                   │
+    //  │  │  72×96   │  Herman Melville                  │  ← autor muted
+    //  │  │          │                                   │
+    //  │  └──────────┘  ████████░░░  3%                  │  ← barra progresso
+    //  │                                                 │  ← 14px padding bot
+    //  └─────────────────────────────────────────────────┘
     m_bookInfoWidget = new QWidget(sideContainer);
     m_bookInfoWidget->setObjectName(QStringLiteral("bookInfoWidget"));
     m_bookInfoWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     auto* bookRow = new QHBoxLayout(m_bookInfoWidget);
-    bookRow->setContentsMargins(12, 10, 12, 10);
-    bookRow->setSpacing(11);
+    bookRow->setContentsMargins(14, 18, 14, 16);
+    bookRow->setSpacing(14);
 
-    // ── Capa (56×76) ──────────────────────────────────────────────────
+    // ── Capa (90×120) ─────────────────────────────────────────────────────
     m_bookCoverLabel = new QLabel(m_bookInfoWidget);
     m_bookCoverLabel->setObjectName(QStringLiteral("bookCoverLabel"));
-    m_bookCoverLabel->setFixedSize(56, 76);
+    m_bookCoverLabel->setFixedSize(90, 120);
     m_bookCoverLabel->setAlignment(Qt::AlignCenter);
     m_bookCoverLabel->setScaledContents(true);
     m_bookCoverLabel->setText(QStringLiteral("📖"));
     bookRow->addWidget(m_bookCoverLabel, 0, Qt::AlignTop);
 
-    // ── Info: título + autor + progresso ─────────────────────────────
+    // ── Coluna direita: título + autor + progresso ────────────────────────
     auto* infoCol = new QVBoxLayout;
-    infoCol->setContentsMargins(0, 2, 0, 0);
-    infoCol->setSpacing(2);
+    infoCol->setContentsMargins(0, 4, 0, 0);
+    infoCol->setSpacing(4);
 
     m_bookTitleLabel = new QLabel(m_bookInfoWidget);
     m_bookTitleLabel->setObjectName(QStringLiteral("bookTitleLabel"));
@@ -101,10 +104,10 @@ void MainWindow::buildUi()
     m_bookAuthorLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     m_bookAuthorLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
-    // Linha de progresso inline: barra fina + "37%"
+    // ── Barra de progresso: fina, sem texto, + label percentual à direita ─
     auto* progressRow = new QHBoxLayout;
-    progressRow->setContentsMargins(0, 4, 0, 0);
-    progressRow->setSpacing(5);
+    progressRow->setContentsMargins(0, 6, 0, 0);
+    progressRow->setSpacing(6);
 
     auto* casualProgressBar = new QProgressBar(m_bookInfoWidget);
     casualProgressBar->setObjectName(QStringLiteral("casualSideProgressBar"));
@@ -116,7 +119,7 @@ void MainWindow::buildUi()
 
     auto* casualProgressPct = new QLabel(QStringLiteral("0%"), m_bookInfoWidget);
     casualProgressPct->setObjectName(QStringLiteral("casualSideProgressPct"));
-    casualProgressPct->setFixedWidth(28);
+    casualProgressPct->setFixedWidth(30);
     casualProgressPct->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
     progressRow->addWidget(casualProgressBar);
@@ -124,10 +127,16 @@ void MainWindow::buildUi()
 
     infoCol->addWidget(m_bookTitleLabel);
     infoCol->addWidget(m_bookAuthorLabel);
+    infoCol->addStretch(1);
     infoCol->addLayout(progressRow);
-    infoCol->addStretch();
 
     bookRow->addLayout(infoCol, 1);
+
+    // ── Separador visual abaixo do header ─────────────────────────────────
+    auto* headerSep = new QFrame(sideContainer);
+    headerSep->setFrameShape(QFrame::HLine);
+    headerSep->setObjectName(QStringLiteral("casualHeaderSep"));
+
     m_bookInfoWidget->hide();
 
     // ── Barra de ícones (visível em Standard / Study) ─────────────────────
@@ -342,26 +351,32 @@ void MainWindow::buildUi()
         m_sideStack->addWidget(bmPanel);            // index 4 → SidePanel::Bookmarks
     }
 
-    // ── Tab bar inferior — Modo Casual (estilo Kindle: Sumário | Notas | Marcadores)
-    //    Visível apenas no Modo Casual; alterna os painéis do m_sideStack.
+    // ── Tab bar inferior — Modo Casual ─────────────────────────────────────
+    // Usa os object names que o QSS casual.qss já estiliza:
+    //   #casualBtnToc / #casualBtnAnnotate / #casualBtnBookmark
+    // → resultado: 3 pill-buttons consistentes com o resto da sidebar.
     m_casualTabBar = new QWidget(sideContainer);
     m_casualTabBar->setObjectName(QStringLiteral("casualTabBar"));
     m_casualTabBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
+    auto* tabSep = new QFrame(sideContainer);
+    tabSep->setFrameShape(QFrame::HLine);
+    tabSep->setObjectName(QStringLiteral("casualTabSep"));
+
     auto* tabBarLayout = new QHBoxLayout(m_casualTabBar);
-    tabBarLayout->setContentsMargins(0, 0, 0, 0);
-    tabBarLayout->setSpacing(0);
+    tabBarLayout->setContentsMargins(8, 6, 8, 8);
+    tabBarLayout->setSpacing(4);
 
     struct CasualTab {
         const char* label;
-        const char* objName;
+        const char* objName;   // ← bate com seletor no QSS
         const char* iconPath;
         SidePanel   panel;
     };
     static constexpr CasualTab kCasualTabs[] = {
-        { "Sumário",    "casualTabToc",       ":/icons/List.svg",     SidePanel::Toc       },
-        { "Anotações",  "casualTabAnnot",     ":/icons/Edit.svg",     SidePanel::Edit      },
-        { "Marcadores", "casualTabBookmarks", ":/icons/Bookmark.svg", SidePanel::Bookmarks },
+        { "Sumário",    "casualBtnToc",      ":/icons/List.svg",     SidePanel::Toc       },
+        { "Anotações",  "casualBtnAnnotate", ":/icons/Edit.svg",     SidePanel::Edit      },
+        { "Marcadores", "casualBtnBookmark", ":/icons/Bookmark.svg", SidePanel::Bookmarks },
     };
 
     for (const auto& tab : kCasualTabs) {
@@ -369,27 +384,27 @@ void MainWindow::buildUi()
         btn->setText(tr(tab.label));
         btn->setIcon(QIcon(QString::fromLatin1(tab.iconPath)));
         btn->setObjectName(QString::fromLatin1(tab.objName));
-        btn->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        btn->setIconSize(QSize(18, 18));
+        btn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        btn->setIconSize(QSize(15, 15));
         btn->setCheckable(true);
         btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        btn->setFixedHeight(44);
 
         const SidePanel panel = tab.panel;
         connect(btn, &QToolButton::clicked, this, [this, panel] {
             m_sideStack->setCurrentIndex(static_cast<int>(panel));
-            // Sincroniza estado visual dos botões
             const auto btns = m_casualTabBar->findChildren<QToolButton*>();
             for (auto* b : btns)
                 b->setChecked(b == sender());
         });
         tabBarLayout->addWidget(btn);
     }
+
     // Ativa "Sumário" por padrão
     if (auto* first = m_casualTabBar->findChild<QToolButton*>(
-            QStringLiteral("casualTabToc")))
+            QStringLiteral("casualBtnToc")))
         first->setChecked(true);
 
+    tabSep->hide();
     m_casualTabBar->hide();
 
     // ── Botão "Adicionar marcador" — fixado no fundo do sidebar ──────────
@@ -403,8 +418,10 @@ void MainWindow::buildUi()
     m_addBookmarkBtn->setEnabled(false);
 
     sideLayout->addWidget(m_bookInfoWidget);
+    sideLayout->addWidget(headerSep);
     sideLayout->addWidget(m_sideIconBar);
     sideLayout->addWidget(m_sideStack, 1);
+    sideLayout->addWidget(tabSep);
     sideLayout->addWidget(m_casualTabBar);
     sideLayout->addWidget(m_addBookmarkBtn);
     dock->setWidget(sideContainer);
@@ -438,6 +455,10 @@ void MainWindow::buildUi()
 
     m_casualWidget = new CasualModeWidget(this);
     m_stack->insertWidget(static_cast<int>(ViewIndex::Casual), m_casualWidget);
+
+    // Spread de duas páginas para PDF no Modo Casual
+    m_casualPdfView = new CasualPdfView(this);
+    m_stack->insertWidget(static_cast<int>(ViewIndex::CasualPdf), m_casualPdfView);
 
     setCentralWidget(m_stack);
     switchView(ViewIndex::Pdf);

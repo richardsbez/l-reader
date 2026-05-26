@@ -138,6 +138,7 @@ target_sources(l-reader
     PUBLIC FILE_SET HEADERS BASE_DIRS src FILES
         src/ViewLayer/main_window.hpp
         src/ViewLayer/pdf_canvas_view.hpp
+        src/ViewLayer/casual_pdf_view.hpp
     PRIVATE
         src/ViewLayer/main_window.cpp
         src/ViewLayer/main_window_ui.cpp
@@ -150,6 +151,7 @@ target_sources(l-reader
         src/ViewLayer/main_window_gallery.cpp
         src/ViewLayer/main_window_search.cpp
         src/ViewLayer/pdf_canvas_view.cpp
+        src/ViewLayer/casual_pdf_view.cpp
 )
 
 # ── Recursos embebidos (.qrc) ─────────────────────────────────────────────────
@@ -158,7 +160,7 @@ target_sources(l-reader PRIVATE src/resources.qrc)
 # ── CasualMode — Controller QObject exposto ao QML ────────────────────────────
 target_sources(l-reader
     PUBLIC FILE_SET HEADERS BASE_DIRS src FILES
-        src/CasualMode/CasualModeController.h
+        src/CasualMode/casual_mode_controller.hpp
         src/CasualMode/CasualModeWidget.h      # Q_OBJECT → precisa de .cpp para vtable
     PRIVATE
         src/CasualMode/CasualModeController.cpp

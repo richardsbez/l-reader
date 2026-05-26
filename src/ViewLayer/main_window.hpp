@@ -27,7 +27,8 @@
 #include <QCloseEvent>
 #include <memory>
 
-#include "CasualMode/CasualModeWidget.h"
+#include "CasualMode/casual_mode_controller.hpp"
+#include "ViewLayer/casual_pdf_view.hpp"
 
 #include "DocumentEngine/document_engine.hpp"
 #include "DocumentEngine/toc_worker.hpp"
@@ -49,7 +50,7 @@ const QDBusArgument &operator>>(const QDBusArgument &arg, PortalFilter &filter);
 
 class PdfCanvasView;
 
-enum class ViewIndex : int { Pdf = 0, Web = 1, Casual = 2 };
+enum class ViewIndex : int { Pdf = 0, Web = 1, Casual = 2, CasualPdf = 3 };
 
 // ─── Índice de painéis no m_sideStack ────────────────────────────────────────
 enum class SidePanel : int {
@@ -131,6 +132,7 @@ private:
     PdfCanvasView*   m_pdfView    = nullptr;
     QWebEngineView*  m_webView    = nullptr;
     CasualModeWidget* m_casualWidget = nullptr;
+    CasualPdfView*    m_casualPdfView = nullptr;  // spread de 2 páginas (PDF + Casual)
 
     // ── Toolbar principal (top) ───────────────────────────────────────────
     QToolBar*    m_toolbar        = nullptr;

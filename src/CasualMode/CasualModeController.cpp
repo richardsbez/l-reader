@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/CasualMode/CasualModeController.cpp  —  l-reader · Modo Casual
 // ─────────────────────────────────────────────────────────────────────────────
-#include "CasualModeController.h"
+#include "casual_mode_controller.hpp"
 
 #include "DocumentEngine/document_engine.hpp"
 #include "DocumentEngine/ebook_engine.hpp"

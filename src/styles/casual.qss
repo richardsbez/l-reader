@@ -377,21 +377,22 @@ QDockWidget::float-button:hover {
 /* ── Widget de info do livro (capa + título + autor) ─────────────────────── */
 #bookInfoWidget {
     background: #f0eff0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.09);
     padding: 0;
 }
 
-/* Capa: retângulo accent arredondado — tom azul Adwaita */
+/* Capa: gradiente Adwaita accent + borda arredondada + sombra leve */
 #bookCoverLabel {
     background: qlineargradient(
         x1:0, y1:0, x2:0, y2:1,
-        stop:0 #4a90d9, stop:1 #3584e4
+        stop:0 #5a9de2, stop:1 #3584e4
     );
     color: rgba(255, 255, 255, 0.90);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
-    letter-spacing: 0.10em;
-    border-radius: 8px;
+    letter-spacing: 0.08em;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
     qproperty-alignment: 'AlignCenter';
 }
 
@@ -399,21 +400,74 @@ QDockWidget::float-button:hover {
     color: #1c1c1c;
     font-size: 13px;
     font-weight: 600;
-    padding: 6px 0 2px 0;
+    padding: 0;
     letter-spacing: -0.01em;
+    line-height: 1.35;
 }
 #bookAuthorLabel {
     color: #5e5c64;
     font-size: 12px;
     padding: 0;
 }
-#bookInfoBtn {
-    background: transparent;
-    border: none;
-    color: #9a9996;
-    font-size: 13px;
+
+/* Separador abaixo do header casual */
+#casualHeaderSep {
+    color: rgba(0, 0, 0, 0.08);
+    max-height: 1px;
 }
-#bookInfoBtn:hover { color: #5e5c64; }
+
+/* Barra de progresso dentro do header */
+QProgressBar#casualSideProgressBar {
+    background: rgba(0, 0, 0, 0.10);
+    border: none;
+    border-radius: 2px;
+    max-height: 3px;
+}
+QProgressBar#casualSideProgressBar::chunk {
+    background: #3584e4;
+    border-radius: 2px;
+}
+QLabel#casualSideProgressPct {
+    color: #9a9996;
+    font-size: 11px;
+}
+
+/* ── Tab bar do Modo Casual (#casualTabBar) ──────────────────────────────── */
+/* Container */
+#casualTabBar {
+    background: #f0eff0;
+    border-top: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+/* Separador acima da tab bar — já estilizado pela regra global de QFrame,
+   mas refinamos aqui para maior controle */
+#casualTabSep {
+    color: rgba(0, 0, 0, 0.08);
+    max-height: 1px;
+}
+
+/* Os 3 botões reutilizam os seletores existentes de #casualBtnToc etc.
+   Apenas complementamos para ícone + texto lado a lado: */
+#casualBtnToc, #casualBtnAnnotate, #casualBtnBookmark {
+    background: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.11);
+    border-radius: 9px;
+    color: #5e5c64;
+    font-size: 12px;
+    padding: 5px 10px;
+    text-align: left;
+}
+#casualBtnToc:hover, #casualBtnAnnotate:hover, #casualBtnBookmark:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #1c1c1c;
+    border-color: rgba(0, 0, 0, 0.16);
+}
+#casualBtnToc:checked, #casualBtnAnnotate:checked, #casualBtnBookmark:checked {
+    background: rgba(53, 132, 228, 0.14);
+    border-color: rgba(53, 132, 228, 0.30);
+    color: #1c71d8;
+    font-weight: 600;
+}
 
 /* ── Barra de ícones do sidebar ─────────────────────────────────────────── */
 #sidebarIconBar { background: #f0eff0; }

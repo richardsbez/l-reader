@@ -9,6 +9,7 @@
 
 #include "main_window.hpp"
 #include "pdf_canvas_view.hpp"
+#include "casual_pdf_view.hpp"
 #include "bookmark_item_widget.hpp"
 #include "DocumentEngine/pdf_engine.hpp"
 #include "DocumentEngine/ebook_engine.hpp"
@@ -171,28 +172,63 @@ void MainWindow::onModeChanged(ModeType newMode, ModeType /*previous*/)
     if (m_sbMode && m_modeManager)
         m_sbMode->setText(m_modeManager->currentName());
 
-    // Modo Casual — substitui QWebEngineView pelo CasualModeWidget (EPUB)
     if (newMode == ModeType::Casual && m_engine) {
-        if (m_engine->type() == DocumentType::EPUB ||
-            m_engine->type() == DocumentType::MOBI)
-        {
+        const DocumentType dtype = m_engine->type();
+
+        if (dtype == DocumentType::PDF) {
+            // ── Modo Casual + PDF → spread de 2 páginas ───────────────────
+            const int currentPage = m_pdfView->currentPage();
+            const int spreadStart = (currentPage / 2) * 2;
+
+            m_casualPdfView->setPageCache(m_pageCache.get(),
+                                          m_pdfView->pageCount());
+
+            // Ajusta DPI para spread ANTES de goToSpread —
+            // kCasualDpi (110) gera renders 2-3× mais rápidos que 150 DPI.
+            m_casualPdfView->activateDpi();
+            m_casualPdfView->goToSpread(spreadStart);
+
+            // Sincroniza indicadores da toolbar ao virar página.
+            // disconnect primeiro para evitar duplicação se entrar no modo
+            // Casual mais de uma vez sem fechar o documento.
+            disconnect(m_casualPdfView, &CasualPdfView::spreadChanged,
+                       this, nullptr);
+            connect(m_casualPdfView, &CasualPdfView::spreadChanged,
+                    this, [this](int left, int /*right*/) {
+                updatePageIndicator(left, m_pdfView->pageCount());
+                m_actPrevPage->setEnabled(left > 0);
+                m_actNextPage->setEnabled(left + 2 < m_pdfView->pageCount());
+                if (m_sidecar) m_sidecar->savePagePosition(left);
+                setSidebarCasualMode(true);
+            });
+
+            switchView(ViewIndex::CasualPdf);
+            m_casualPdfView->setFocus();
+
+        } else if (dtype == DocumentType::EPUB || dtype == DocumentType::MOBI) {
+            // ── Modo Casual + EPUB → CasualModeWidget (QML) ──────────────
+            const int currentPos = m_currentChapter;
+            m_casualWidget->controller()->setDocument(m_engine.get(), currentPos);
             switchView(ViewIndex::Casual);
         }
-
-        const int currentPos = (m_engine->type() == DocumentType::PDF)
-                               ? m_pdfView->currentPage()
-                               : m_currentChapter;
-        m_casualWidget->controller()->setDocument(m_engine.get(), currentPos);
     }
 
-    // Ao sair do Modo Casual para EPUB, volta para a vista Web
-    if (newMode != ModeType::Casual &&
-        m_engine &&
-        (m_engine->type() == DocumentType::EPUB ||
-         m_engine->type() == DocumentType::MOBI) &&
-        m_stack->currentIndex() == static_cast<int>(ViewIndex::Casual))
-    {
-        switchView(ViewIndex::Web);
+    // Ao sair do Modo Casual:
+    // PDF → volta para ViewIndex::Pdf
+    if (newMode != ModeType::Casual && m_engine) {
+        if (m_engine->type() == DocumentType::PDF &&
+            m_stack->currentIndex() == static_cast<int>(ViewIndex::CasualPdf)) {
+            const int page = m_casualPdfView->currentLeftPage();
+            m_casualPdfView->deactivateDpi();   // restaura DPI do modo normal
+            switchView(ViewIndex::Pdf);
+            m_pdfView->goToPage(page);
+        }
+        // EPUB → volta para ViewIndex::Web
+        if ((m_engine->type() == DocumentType::EPUB ||
+             m_engine->type() == DocumentType::MOBI) &&
+            m_stack->currentIndex() == static_cast<int>(ViewIndex::Casual)) {
+            switchView(ViewIndex::Web);
+        }
     }
 }
 
@@ -216,6 +252,19 @@ void MainWindow::setSidebarCasualMode(bool casual)
     if (m_addBookmarkBtn)  m_addBookmarkBtn->setVisible(!casual);
     if (m_casualTabBar)    m_casualTabBar->setVisible(casual);
 
+    // Separadores relacionados ao header e tab bar casual
+    auto* headerSep = m_bookInfoWidget
+                      ? m_bookInfoWidget->parentWidget()->findChild<QFrame*>(
+                            QStringLiteral("casualHeaderSep"))
+                      : nullptr;
+    if (headerSep) headerSep->setVisible(casual);
+
+    auto* tabSep = m_casualTabBar
+                   ? m_casualTabBar->parentWidget()->findChild<QFrame*>(
+                         QStringLiteral("casualTabSep"))
+                   : nullptr;
+    if (tabSep) tabSep->setVisible(casual);
+
     // ── m_sideStack: sempre visível; em casual mostra o TOC por padrão
     if (m_sideStack) {
         m_sideStack->setVisible(true);
@@ -225,7 +274,7 @@ void MainWindow::setSidebarCasualMode(bool casual)
             if (m_casualTabBar) {
                 const auto btns = m_casualTabBar->findChildren<QToolButton*>();
                 for (auto* b : btns)
-                    b->setChecked(b->objectName() == QLatin1String("casualTabToc"));
+                    b->setChecked(b->objectName() == QLatin1String("casualBtnToc"));
             }
         }
     }
@@ -292,14 +341,20 @@ void MainWindow::wireDocumentSignals()
 
     // Navegação prev/next (PDF e EPUB)
     connect(m_actPrevPage, &QAction::triggered, this, [this] {
-        if (m_stack->currentIndex() == static_cast<int>(ViewIndex::Web))
+        const int idx = m_stack->currentIndex();
+        if (idx == static_cast<int>(ViewIndex::Web))
             loadEpubChapter(m_currentChapter - 1);
+        else if (idx == static_cast<int>(ViewIndex::CasualPdf))
+            m_casualPdfView->prevSpread();
         else
             m_pdfView->goToPage(m_pdfView->currentPage() - 1);
     });
     connect(m_actNextPage, &QAction::triggered, this, [this] {
-        if (m_stack->currentIndex() == static_cast<int>(ViewIndex::Web))
+        const int idx = m_stack->currentIndex();
+        if (idx == static_cast<int>(ViewIndex::Web))
             loadEpubChapter(m_currentChapter + 1);
+        else if (idx == static_cast<int>(ViewIndex::CasualPdf))
+            m_casualPdfView->nextSpread();
         else
             m_pdfView->goToPage(m_pdfView->currentPage() + 1);
     });

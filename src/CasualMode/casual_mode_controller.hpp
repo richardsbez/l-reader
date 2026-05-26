@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/CasualMode/CasualModeController.h  —  l-reader · Modo Casual
+// src/CasualMode/casual_mode_controller.hpp  —  l-reader · Modo Casual
 //
 // Controlador QObject que expõe o estado do documento ao motor QML.
 // Todas as propriedades são sincronizadas via Q_PROPERTY / NOTIFY.
