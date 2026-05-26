@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// CasualModeView.qml  —  l-reader · Modo Casual
+// casual_mode_view.qml  —  l-reader · Modo Casual
 //
 // Layout de duas páginas lado a lado (book spread), paginação horizontal.
 // Inspirado no Kindle Cloud Reader / Apple Books desktop.
@@ -40,7 +40,7 @@ Item {
 
     // ─────────────────────────────────────────────────────────────────────────
     // Sidebar QWidget (gerida pelo C++) — este QML não a controla.
-    // CasualModeSidebar.qml mantido apenas para compatibilidade de imports.
+    // casual_mode_sidebar.qml mantido apenas para compatibilidade de imports.
     // ─────────────────────────────────────────────────────────────────────────
 
     // ─────────────────────────────────────────────────────────────────────────

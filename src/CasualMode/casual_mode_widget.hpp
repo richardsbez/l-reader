@@ -27,55 +27,47 @@
 
 #include "casual_mode_controller.hpp"
 
-class CasualModeWidget final : public QQuickWidget
-{
-    Q_OBJECT
+class CasualModeWidget final : public QQuickWidget {
+  Q_OBJECT
 
 public:
-    explicit CasualModeWidget(QWidget* parent = nullptr)
-        : QQuickWidget(parent)
-        , m_controller(new CasualModeController(this))
-    {
-        // ── 1. Estilo dos Quick Controls ─────────────────────────────────────
-        // "Basic" é o único estilo sem dependência de plataforma (não usa
-        // Material/Fusion/Windows específicos) — ideal para uma UI custom.
-        QQuickStyle::setStyle(QStringLiteral("Basic"));
+  explicit CasualModeWidget(QWidget *parent = nullptr)
+      : QQuickWidget(parent), m_controller(new CasualModeController(this)) {
+    // ── 1. Estilo dos Quick Controls ─────────────────────────────────────
+    // "Basic" é o único estilo sem dependência de plataforma (não usa
+    // Material/Fusion/Windows específicos) — ideal para uma UI custom.
+    QQuickStyle::setStyle(QStringLiteral("Basic"));
 
-        // ── 2. Expor o controller ao motor QML ───────────────────────────────
-        // O ficheiro CasualModeView.qml acede ao controller como "casualCtrl".
-        rootContext()->setContextProperty(
-            QStringLiteral("casualCtrl"),
-            m_controller
-        );
+    // ── 2. Expor o controller ao motor QML ───────────────────────────────
+    // O ficheiro casual_mode_view.qml acede ao controller como "casualCtrl".
+    rootContext()->setContextProperty(QStringLiteral("casualCtrl"),
+                                      m_controller);
 
-        // ── 3. Comportamento do widget ────────────────────────────────────────
-        setResizeMode(QQuickWidget::SizeRootObjectToView);
-        setAttribute(Qt::WA_OpaquePaintEvent);
-        setAttribute(Qt::WA_NoSystemBackground);
+    // ── 3. Comportamento do widget ────────────────────────────────────────
+    setResizeMode(QQuickWidget::SizeRootObjectToView);
+    setAttribute(Qt::WA_OpaquePaintEvent);
+    setAttribute(Qt::WA_NoSystemBackground);
 
-        // ── 4. QML carregado no primeiro showEvent ────────────────────────────
-        // Adiado para evitar crash ao iniciar se o widget nunca for exibido
-        // (ex.: usuário abre PDF e nunca ativa o modo Casual EPUB).
-    }
+    // ── 4. QML carregado no primeiro showEvent ────────────────────────────
+    // Adiado para evitar crash ao iniciar se o widget nunca for exibido
+    // (ex.: usuário abre PDF e nunca ativa o modo Casual EPUB).
+  }
 
-    [[nodiscard]] CasualModeController* controller() const noexcept
-    {
-        return m_controller;
-    }
+  [[nodiscard]] CasualModeController *controller() const noexcept {
+    return m_controller;
+  }
 
 protected:
-    void showEvent(QShowEvent* event) override
-    {
-        if (!m_qmlLoaded) {
-            m_qmlLoaded = true;
-            setSource(QUrl(QStringLiteral(
-                "qrc:/LReader/LReader/Casual/CasualModeView.qml"
-            )));
-        }
-        QQuickWidget::showEvent(event);
+  void showEvent(QShowEvent *event) override {
+    if (!m_qmlLoaded) {
+      m_qmlLoaded = true;
+      setSource(QUrl(
+          QStringLiteral("qrc:/LReader/LReader/Casual/casual_mode_view.qml")));
     }
+    QQuickWidget::showEvent(event);
+  }
 
 private:
-    CasualModeController* const m_controller;
-    bool                        m_qmlLoaded = false;
+  CasualModeController *const m_controller;
+  bool m_qmlLoaded = false;
 };

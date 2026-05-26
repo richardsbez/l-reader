@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/qml/casual/CasualModeFooter.qml  —  l-reader · Modo Casual
+// src/qml/casual/casual_mode_footer.qml  —  l-reader · Modo Casual
 //
 // Mudanças em relação à versão anterior:
 //   • chapterBreaks substituído por casualCtrl.chapterBreakPositions (dados reais)

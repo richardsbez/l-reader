@@ -175,11 +175,11 @@ qt_add_qml_module(l-reader
     VERSION        1.0
     RESOURCE_PREFIX /LReader
     QML_FILES
-        src/qml/casual/CasualModeView.qml
-        src/qml/casual/CasualModeHeader.qml
-        src/qml/casual/TextSettingsPopover.qml
-        src/qml/casual/CasualModeFooter.qml
-        src/qml/casual/CasualModeSidebar.qml
+        src/qml/casual/casual_mode_view.qml
+        src/qml/casual/casual_mode_header.qml
+        src/qml/casual/text_settings_popover.qml
+        src/qml/casual/casual_mode_footer.qml
+        src/qml/casual/casual_mode_sidebar.qml
     NO_PLUGIN   # Embute o módulo directo no executável; sem .so separado
 )
 

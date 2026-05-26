@@ -40,7 +40,7 @@
       NOTA: Os ficheiros QML do Modo Casual NAO sao listados aqui.
       Sao geridos pelo cmake via qt_add_qml_module() com RESOURCE_PREFIX
       "/LReader". O QQuickWidget carrega-os via:
-        engine.load(QUrl("qrc:/LReader/LReader/Casual/CasualModeView.qml"))
+        engine.load(QUrl("qrc:/LReader/LReader/Casual/casual_mode_view.qml"))
     -->
   </qresource>
 </RCC>

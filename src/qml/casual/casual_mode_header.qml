@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// CasualModeHeader.qml  —  l-reader · Modo Casual
+// casual_mode_header.qml  —  l-reader · Modo Casual
 //
 // Espelha o layout da Image 2 (Apple Books / Kindle desktop):
 //

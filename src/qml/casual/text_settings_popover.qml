@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/qml/casual/TextSettingsPopover.qml  —  l-reader · Modo Casual
+// src/qml/casual/text_settings_popover.qml  —  l-reader · Modo Casual
 //
 // Popover flutuante de configurações de leitura.
 // Surge ao clicar no botão "Aa" da HeaderBar.

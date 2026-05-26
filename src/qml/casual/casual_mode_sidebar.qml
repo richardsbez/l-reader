@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/qml/casual/CasualModeSidebar.qml  —  l-reader · Modo Casual
+// src/qml/casual/casual_mode_sidebar.qml  —  l-reader · Modo Casual
 //
 // Mudanças em relação à versão anterior:
 //   • "Umberto Eco" hardcoded → casualCtrl.author  (dados reais)
