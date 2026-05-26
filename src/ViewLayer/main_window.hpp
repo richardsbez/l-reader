@@ -27,7 +27,7 @@
 #include <QCloseEvent>
 #include <memory>
 
-#include "CasualMode/casual_mode_controller.hpp"
+#include "CasualMode/casual_mode_widget.hpp"
 #include "ViewLayer/casual_pdf_view.hpp"
 
 #include "DocumentEngine/document_engine.hpp"

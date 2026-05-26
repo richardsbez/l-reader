@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/CasualMode/CasualModeController.cpp  —  l-reader · Modo Casual
+// src/CasualMode/casual_mode_controller.cpp  —  l-reader · Modo Casual
 // ─────────────────────────────────────────────────────────────────────────────
 #include "casual_mode_controller.hpp"
 

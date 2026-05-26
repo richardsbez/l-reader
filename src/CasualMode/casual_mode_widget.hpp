@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/CasualMode/CasualModeWidget.h  —  l-reader · Modo Casual
+// src/CasualMode/casual_mode_widget.hpp  —  l-reader · Modo Casual
 //
 // Widget de integração: hospeda o motor QML (CasualModeView) dentro da
 // arquitectura QWidget existente usando QQuickWidget.

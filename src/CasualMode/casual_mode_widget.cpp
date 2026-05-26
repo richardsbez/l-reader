@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// src/CasualMode/CasualModeWidget.cpp  —  l-reader · Modo Casual
+// src/CasualMode/casual_mode_widget.cpp  —  l-reader · Modo Casual
 //
 // Ficheiro de compilação mínimo para CasualModeWidget.
 //
@@ -14,4 +14,4 @@
 //   A solução canónica é ter um .cpp que inclua o header, fazendo o AUTOMOC
 //   reconhecer a unidade de compilação e ligar o output do MOC correctamente.
 // ─────────────────────────────────────────────────────────────────────────────
-#include "CasualModeWidget.h"
+#include "casual_mode_widget.hpp"
