@@ -1,93 +1,129 @@
 // casual_pdf_view.hpp  —  l-reader
 //
 // Widget de leitura "book spread" para o Modo Casual (PDF).
-// Otimizações de carregamento:
-//   • DPI calculado para o tamanho real do widget (~96 DPI) — renders 2-3x mais rápidos
-//   • Pré-renderiza o spread seguinte/anterior em background imediatamente
-//   • Mostra spinner animado enquanto as páginas carregam (sem tela branca)
-//   • setDpi() chamado SÓ no showEvent — não interfere com o DPI do PdfCanvasView
+//
+// Extensões em relação à versão original:
+//   • Aceita Poppler::Document* em setPageCache() para habilitar extração de
+//   texto. • Contém PdfTextLayer: seleção de texto, highlights e busca
+//   funcionam no spread. • Interação: drag = seleção de texto; click simples
+//   (sem drag) = virar página. • Expõe a mesma API de highlights que
+//   PdfCanvasView — MainWindow pode
+//     conectar os mesmos signals/slots de HighlightManager.
 
 #pragma once
 
-#include <QWidget>
+#include "DocumentEngine/highlight_entry.hpp"
+#include "RenderSubsystem/page_cache.hpp"
+#include "ViewLayer/pdf_text_layer.hpp"
 #include <QPixmap>
 #include <QPropertyAnimation>
 #include <QTimer>
+#include <QVector>
+#include <QWidget>
+#include <memory>
 #include <optional>
+#include <poppler-qt6.h>
 
-class PageCache;
-
-class CasualPdfView final : public QWidget
-{
-    Q_OBJECT
-    Q_PROPERTY(qreal opacity READ opacity WRITE setOpacity)
+class CasualPdfView final : public QWidget {
+  Q_OBJECT
+  Q_PROPERTY(qreal opacity READ opacity WRITE setOpacity)
 
 public:
-    explicit CasualPdfView(QWidget* parent = nullptr);
+  explicit CasualPdfView(QWidget *parent = nullptr);
 
-    void setPageCache(PageCache* cache, int pageCount);
-    void goToSpread(int leftPage);
-    void nextSpread();
-    void prevSpread();
+  // doc: necessário para extração de texto. Pode ser nullptr para desabilitar
+  // texto.
+  void setPageCache(PageCache *cache, Poppler::Document *doc, int pageCount);
 
-    [[nodiscard]] int currentLeftPage() const { return m_leftPage;  }
-    [[nodiscard]] int pageCount()       const { return m_pageCount; }
+  void goToSpread(int leftPage);
+  void nextSpread();
+  void prevSpread();
 
-    void setBackgroundColor(const QColor& c);
+  [[nodiscard]] int currentLeftPage() const { return m_leftPage; }
+  [[nodiscard]] int pageCount() const { return m_pageCount; }
 
-    // Chamado por MainWindow ao entrar/sair do modo casual
-    // para ajustar o DPI sem interferir com o PdfCanvasView
-    void activateDpi();
-    void deactivateDpi();
+  void setBackgroundColor(const QColor &c);
+
+  void activateDpi();
+  void deactivateDpi();
+
+  // ── API de texto — espelha PdfCanvasView ─────────────────────────────
+  void addHighlight(const HighlightEntry &h);
+  void removeHighlight(const QString &id);
+  void clearHighlights();
+  void setSearchHighlights(int page, const QList<QRectF> &ptRects);
+  void clearSearchHighlights();
+  void copyToClipboard();
+  void clearSelection();
+
+  void setSelectionMode(PdfTextLayer::SelectionMode m);
+  void setToolMode(PdfTextLayer::ToolMode mode);
 
 signals:
-    void spreadChanged(int leftPage, int rightPage);
+  void spreadChanged(int leftPage, int rightPage);
+
+  // ── Sinais de texto — conectar ao HighlightManager ───────────────────
+  void textSelected(const QString &text);
+  void highlightRequested(HighlightEntry entry);
+  void removeHighlightRequested(QString id);
 
 public slots:
-    void onPageReady(int page);
+  void onPageReady(int page);
 
 protected:
-    void paintEvent(QPaintEvent* event)   override;
-    void resizeEvent(QResizeEvent* event) override;
-    void showEvent(QShowEvent* event)     override;
-    void mousePressEvent(QMouseEvent* e)  override;
-    void keyPressEvent(QKeyEvent* e)      override;
-    void wheelEvent(QWheelEvent* e)       override;
+  void paintEvent(QPaintEvent *event) override;
+  void resizeEvent(QResizeEvent *event) override;
+  void showEvent(QShowEvent *event) override;
+  void mousePressEvent(QMouseEvent *e) override;
+  void mouseMoveEvent(QMouseEvent *e) override;
+  void mouseReleaseEvent(QMouseEvent *e) override;
+  void keyPressEvent(QKeyEvent *e) override;
+  void wheelEvent(QWheelEvent *e) override;
+  void contextMenuEvent(QContextMenuEvent *e) override;
 
 private:
-    void  requestCurrentPages();
-    void  prefetchAdjacentSpreads();
-    void  scheduleFadeIn();
-    qreal computeDpi() const;
+  void requestCurrentPages();
+  void prefetchAdjacentSpreads();
+  void scheduleFadeIn();
+  qreal computeDpi() const;
 
-    [[nodiscard]] QRect leftPageRect()  const;
-    [[nodiscard]] QRect rightPageRect() const;
-    [[nodiscard]] QRect fitPixmap(const QPixmap& px, const QRect& area) const;
-    void drawSpinner(QPainter& p, const QRect& area) const;
+  [[nodiscard]] QRect leftPageRect() const;
+  [[nodiscard]] QRect rightPageRect() const;
+  [[nodiscard]] QRect pageRectForIndex(int i) const;
+  [[nodiscard]] qreal scaleForPage(int i) const;
+  void drawSpinner(QPainter &p, const QRect &area) const;
 
-    qreal opacity()      const { return m_opacity; }
-    void  setOpacity(qreal v)  { m_opacity = v; update(); }
+  qreal opacity() const { return m_opacity; }
+  void setOpacity(qreal v) {
+    m_opacity = v;
+    update();
+  }
 
-    PageCache*  m_cache     = nullptr;
-    int         m_pageCount = 0;
-    int         m_leftPage  = 0;
-    QColor      m_bg        { 0xF5, 0xF5, 0xF5 };
+  // ── Document ──────────────────────────────────────────────────────────
+  PageCache *m_cache = nullptr;
+  Poppler::Document *m_doc = nullptr;
+  int m_pageCount = 0;
+  int m_leftPage = 0;
+  QVector<QSizeF> m_pageSizes; ///< pré-carregados em setPageCache()
 
-    std::optional<QPixmap> m_leftPx;
-    std::optional<QPixmap> m_rightPx;
+  // ── Rendering ────────────────────────────────────────────────────────
+  QColor m_bg{0xF5, 0xF5, 0xF5};
+  std::optional<QPixmap> m_leftPx;
+  std::optional<QPixmap> m_rightPx;
 
-    qreal               m_opacity      = 1.0;
-    QPropertyAnimation* m_fadeAnim     = nullptr;
+  qreal m_opacity = 1.0;
+  QPropertyAnimation *m_fadeAnim = nullptr;
 
-    // Spinner de carregamento
-    QTimer* m_spinnerTimer  = nullptr;
-    int     m_spinnerAngle  = 0;
+  QTimer *m_spinnerTimer = nullptr;
+  int m_spinnerAngle = 0;
+  qreal m_activeDpi = 0.0;
 
-    // Evita chamar setDpi() repetidamente com o mesmo valor
-    qreal   m_activeDpi     = 0.0;
+  // ── Interação de texto ────────────────────────────────────────────────
+  std::unique_ptr<PdfTextLayer> m_textLayer;
 
-    static constexpr int    kGutterPx     = 24;
-    static constexpr int    kPageMarginPx = 32;
-    static constexpr int    kShadowPx     = 5;
-    static constexpr qreal  kCasualDpi    = 110.0;  // fixo para spread — renders rápidos
+  // ── Constantes ────────────────────────────────────────────────────────
+  static constexpr int kGutterPx = 24;
+  static constexpr int kPageMarginPx = 32;
+  static constexpr int kShadowPx = 5;
+  static constexpr qreal kCasualDpi = 110.0;
 };
