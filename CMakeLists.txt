@@ -164,9 +164,11 @@ target_sources(l-reader
     PUBLIC FILE_SET HEADERS BASE_DIRS src FILES
         src/CasualMode/casual_mode_controller.hpp
         src/CasualMode/casual_mode_widget.hpp      # Q_OBJECT → precisa de .cpp para vtable
+        src/CasualMode/casual_sidebar_models.hpp
     PRIVATE
         src/CasualMode/casual_mode_controller.cpp
         src/CasualMode/casual_mode_widget.cpp    # unidade mínima que activa o AUTOMOC
+        src/CasualMode/casual_sidebar_models.cpp
 )
 
 # ── QML Module — Modo Casual (requer Qt 6.4+) ─────────────────────────────────

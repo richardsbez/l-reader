@@ -756,6 +756,39 @@ QToolButton#toolAnnotateBtn:checked {
     border-radius: 10px;
 }
 
+
+/* ── Seletor de cor de highlight ────────────────────────────────────────── */
+#hlColorRow {
+    background: #f5f4f5;
+    border-bottom: 1px solid rgba(0,0,0,0.07);
+}
+#hlColorLabel {
+    color: #888;
+    font-size: 11px;
+}
+QToolButton#hlBtnYellow,
+QToolButton#hlBtnCyan,
+QToolButton#hlBtnGreen,
+QToolButton#hlBtnPink {
+    border: 2px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+}
+QToolButton#hlBtnYellow  { background: rgba(255, 200,   0, 130); }
+QToolButton#hlBtnCyan    { background: rgba( 26, 180, 255, 130); }
+QToolButton#hlBtnGreen   { background: rgba( 60, 190,  60, 130); }
+QToolButton#hlBtnPink    { background: rgba(230,  70, 160, 130); }
+
+QToolButton#hlBtnYellow:hover  { background: rgba(255, 200,   0, 200); }
+QToolButton#hlBtnCyan:hover    { background: rgba( 26, 180, 255, 200); }
+QToolButton#hlBtnGreen:hover   { background: rgba( 60, 190,  60, 200); }
+QToolButton#hlBtnPink:hover    { background: rgba(230,  70, 160, 200); }
+
+QToolButton#hlBtnYellow:checked  { border-color: rgba(200, 160,   0, 255); background: rgba(255, 200,   0, 210); }
+QToolButton#hlBtnCyan:checked    { border-color: rgba(  0, 140, 210, 255); background: rgba( 26, 180, 255, 210); }
+QToolButton#hlBtnGreen:checked   { border-color: rgba( 20, 150,  20, 255); background: rgba( 60, 190,  60, 210); }
+QToolButton#hlBtnPink:checked    { border-color: rgba(180,  30, 120, 255); background: rgba(230,  70, 160, 210); }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    PAINEL DE BUSCA
    ═══════════════════════════════════════════════════════════════════════════ */

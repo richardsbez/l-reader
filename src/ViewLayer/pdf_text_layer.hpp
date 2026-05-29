@@ -3,20 +3,14 @@
 // Camada de manipulação de texto PDF: seleção, highlights, busca e clipboard.
 // Completamente desacoplada do layout/scroll do widget pai.
 //
-// Uso:
-//   1. Construir com duas lambdas que descrevem o sistema de coordenadas:
-//        • pageRectFn(i) → QRect do widget para a página i
-//        • scaleFn(i)    → razão pixels/pt da página i
-//      Em PdfCanvasView a escala é global (BASE_DPI/72 × zoom).
-//      Em CasualPdfView varia por página (fit-to-area).
-//
-//   2. Chamar setDocument() ao abrir um documento.
-//
-//   3. Conectar repaintNeeded/repaintAll ao update() do widget pai.
-//
-//   4. Delegar eventos de mouse/teclado com os métodos handle*().
-//
-//   5. Chamar paintOverlays() no final do paintEvent() do widget pai.
+// Melhorias v2:
+//   • Duplo-clique  → seleciona a palavra sob o cursor
+//   • Triplo-clique → seleciona a linha inteira
+//   • Shift+click   → estende a seleção existente
+//   • Ctrl+H        → cria highlight da seleção com a cor ativa
+//   • Menu de contexto com submenu "Destacar como" (4 cores)
+//   • setHighlightColor() / highlightColor() para seletor de cor externo
+//   • Rendering de seleção melhorado (borda sutil, rubber-band polido)
 
 #pragma once
 
@@ -40,13 +34,7 @@ class PdfTextLayer final : public QObject {
   Q_OBJECT
 public:
   // ── Tipos de coordenadas injetadas pelo widget pai ────────────────────
-  // Retorna o rect em pixels (coords do widget) da página i.
-  // Rect inválido/nulo = página fora da área visível.
   using PageRectFn = std::function<QRect(int pageIndex)>;
-
-  // Retorna a escala de renderização: pixels por ponto PDF da página i.
-  // PdfCanvasView passa uma lambda que ignora o índice (escala global).
-  // CasualPdfView passa uma lambda que calcula por página (fit-to-area).
   using ScaleFn = std::function<qreal(int pageIndex)>;
 
   // ── Modos ─────────────────────────────────────────────────────────────
@@ -78,6 +66,14 @@ public:
   void setToolMode(ToolMode mode);
   void toggleSelectionMode();
 
+  // ── Cor ativa de highlight ────────────────────────────────────────────
+  // Usada por Ctrl+H, pelo modo Annotate ao soltar, e pelo menu de contexto
+  // quando nenhuma cor específica é escolhida.
+  void setHighlightColor(const QColor &color);
+  [[nodiscard]] QColor highlightColor() const noexcept {
+    return m_activeHlColor;
+  }
+
   // ── Seleção de texto ──────────────────────────────────────────────────
   [[nodiscard]] bool hasSelection() const noexcept { return m_hasSelection; }
   [[nodiscard]] QString selectedText() const noexcept { return m_selectedText; }
@@ -94,12 +90,10 @@ public:
   [[nodiscard]] QString highlightIdAtPoint(const QPoint &widgetPos) const;
 
   // ── Highlights de busca (temporários) ────────────────────────────────
-  // ptRects em coordenadas de pontos PDF (mesma unidade dos highlights).
   void setSearchHighlights(int page, const QList<QRectF> &ptRects);
   void clearSearchHighlights();
 
   // ── Delegação de eventos ──────────────────────────────────────────────
-  // Retornam true se o evento foi consumido (caller chama event->accept()).
   [[nodiscard]] bool handleMousePress(QMouseEvent *e);
   [[nodiscard]] bool handleMouseMove(QMouseEvent *e);
   [[nodiscard]] bool handleMouseRelease(QMouseEvent *e);
@@ -107,8 +101,6 @@ public:
   void handleContextMenu(QContextMenuEvent *e, QWidget *viewport);
 
   // ── Pintura ───────────────────────────────────────────────────────────
-  // Chamar ao final de paintEvent() do widget pai, após renderizar páginas.
-  // Pinta: highlights permanentes → busca → seleção → rubber-band.
   void paintOverlays(QPainter &p, const QRect &clip) const;
 
   // ── Cursor sugerido para o modo atual ─────────────────────────────────
@@ -120,11 +112,10 @@ signals:
   void removeHighlightRequested(QString id);
   void toolModeChanged(ToolMode mode);
   void selectionModeChanged(SelectionMode mode);
+  void highlightColorChanged(QColor color);
 
-  // O widget pai conecta estes ao seu update() / update(rect)
-  void repaintNeeded(QRect region); ///< repaint parcial (mais eficiente)
-  void repaintAll();                ///< repaint completo do widget
-
+  void repaintNeeded(QRect region);
+  void repaintAll();
   void cursorChanged(Qt::CursorShape shape);
 
 private:
@@ -133,18 +124,16 @@ private:
     QString text;
     QRectF bbox;
     bool hasSpaceAfter = false;
-    QVector<QRectF> charBoxes; ///< uma entry por char (pode ter isEmpty())
+    QVector<QRectF> charBoxes;
   };
 
   struct PageSelection {
     int page;
-    QVector<QRectF> ptRects; ///< rects em coordenadas de pontos PDF
+    QVector<QRectF> ptRects;
   };
 
   // ── Word cache ────────────────────────────────────────────────────────
-  // Evita re-chamar pg->textList() a cada mouseMoveEvent.
-  // Custo unitário = número de palavras; limite total kWordCacheMaxCost.
-  static constexpr int kWordCacheMaxCost = 15'000; // ~50 págs × 300 palavras
+  static constexpr int kWordCacheMaxCost = 15'000;
   QCache<int, QVector<WordInfo>> m_wordCache{kWordCacheMaxCost};
 
   [[nodiscard]] QVector<WordInfo> getPageWords(int page);
@@ -156,8 +145,17 @@ private:
   [[nodiscard]] QRect selectionBoundingRectWidget() const;
 
   // ── Seleção ───────────────────────────────────────────────────────────
-  void computeSelection();         ///< RectMode  — chamado em mouseRelease
-  void computeTextFlowSelection(); ///< TextFlowMode — chamado pelo throttle
+  void computeSelection();         ///< RectMode
+  void computeTextFlowSelection(); ///< TextFlowMode (chamado pelo throttle)
+
+  /// Seleciona a palavra sob widgetPos (duplo-clique)
+  void selectWordAt(const QPoint &widgetPos);
+
+  /// Seleciona a linha inteira sob widgetPos (triplo-clique)
+  void selectLineAt(const QPoint &widgetPos);
+
+  /// Cria um HighlightEntry a partir da seleção atual com a cor dada
+  void createHighlightFromSelection(const QColor &color);
 
   // ── Pintura auxiliar ──────────────────────────────────────────────────
   void paintSelection(QPainter &p, const QRect &clip) const;
@@ -179,9 +177,19 @@ private:
   SelectionMode m_selMode = SelectionMode::TextFlowMode;
   ToolMode m_toolMode = ToolMode::Select;
 
-  // Throttle de seleção (16 ms ≈ 60 fps) — evita pg->textList() a cada pixel
+  // Throttle de seleção (16 ms ≈ 60 fps)
   QTimer *m_selThrottle = nullptr;
   bool m_selPending = false;
+
+  // Multi-click (duplo/triplo)
+  QTimer *m_clickTimer = nullptr;
+  int m_clickCount = 0;
+  QPoint m_lastClickPos;
+  static constexpr int kMultiClickMs = 350; // ms entre cliques
+  static constexpr int kClickProximity = 6; // px de tolerância
+
+  // Cor ativa de highlight
+  QColor m_activeHlColor{255, 220, 0, 150};
 
   // Highlights permanentes
   QVector<HighlightEntry> m_highlights;

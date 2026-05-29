@@ -11,19 +11,13 @@
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPixmap>
 #include <QRegularExpression>
 #include <QUuid>
 #include <algorithm>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // mergeRectsByLine — une rects de caracteres/palavras em faixas de linha
-//
-// Algoritmo:
-//   1. Ordena por Y (linha) e depois por X (posição na linha).
-//      Threshold de 2 px absorve variações sub-pixel de diferentes renderers.
-//   2. Agrupa rects cujo centro Y está dentro de 55 % da altura do rect
-//      corrente — lida com letras ascendentes/descendentes na mesma linha.
-//   3. Une horizontalmente (QRectF::united) → uma faixa por linha.
 // ─────────────────────────────────────────────────────────────────────────────
 static QVector<QRectF> mergeRectsByLine(const QVector<QRectF> &rects) {
   if (rects.isEmpty())
@@ -39,7 +33,6 @@ static QVector<QRectF> mergeRectsByLine(const QVector<QRectF> &rects) {
 
   QVector<QRectF> merged;
   merged.reserve(8);
-
   QRectF cur = sorted.first();
   for (int i = 1; i < sorted.size(); ++i) {
     const QRectF &r = sorted[i];
@@ -58,56 +51,56 @@ static QVector<QRectF> mergeRectsByLine(const QVector<QRectF> &rects) {
 // paintHighlightRects — faixas de highlight com cantos arredondados
 // ─────────────────────────────────────────────────────────────────────────────
 static void paintHighlightRects(QPainter &p, const QVector<QRectF> &widgetRects,
-                                const QColor &color, qreal cornerRadius) {
+                                const QColor &fillColor, qreal cornerRadius,
+                                const QColor &strokeColor = QColor(),
+                                qreal strokeWidth = 0.0) {
   p.save();
   p.setRenderHint(QPainter::Antialiasing, true);
   p.setCompositionMode(QPainter::CompositionMode_SourceOver);
-  p.setPen(Qt::NoPen);
-  p.setBrush(color);
+
   for (const QRectF &r : widgetRects) {
-    // Altura mínima de 3 px para rects degenerados (espaços)
     const QRectF safe = r.height() < 3.0
                             ? r.adjusted(0, -(3.0 - r.height()) * 0.5, 0,
                                          (3.0 - r.height()) * 0.5)
                             : r;
+
+    // Fill
+    p.setPen(Qt::NoPen);
+    p.setBrush(fillColor);
     p.drawRoundedRect(safe, cornerRadius, cornerRadius);
+
+    // Optional stroke (para seleção)
+    if (strokeColor.isValid() && strokeWidth > 0.0) {
+      p.setPen(QPen(strokeColor, strokeWidth));
+      p.setBrush(Qt::NoBrush);
+      p.drawRoundedRect(safe.adjusted(strokeWidth * 0.5, strokeWidth * 0.5,
+                                      -strokeWidth * 0.5, -strokeWidth * 0.5),
+                        cornerRadius, cornerRadius);
+    }
   }
   p.restore();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// normalizeForClipboard — limpa o texto extraído do PDF para o clipboard
-//
-//   1. Remove soft-hyphens (U+00AD) — artefatos invisíveis em alguns editores.
-//   2. Desfaz hifenização de linha/página ("pala-\nbra" → "palavra").
-//   3. \n simples → espaço; \n\n (parágrafo real) → preservado.
-//   4. Colapsa múltiplos espaços em um único.
-//   5. Remove espaço residual antes de quebra de parágrafo.
+// normalizeForClipboard
 // ─────────────────────────────────────────────────────────────────────────────
 static QString normalizeForClipboard(const QString &raw) {
   QString s = raw;
-
-  // 1. Soft-hyphens invisíveis
   s.remove(QChar(0x00AD));
 
-  // 2. Hifenização de fim de linha/página (hífen normal U+002D e não-quebrável
-  // U+2011)
   static const QRegularExpression reHyphen(
       QStringLiteral("[\\x{002D}\\x{2011}]\\n"),
       QRegularExpression::UseUnicodePropertiesOption);
   s.replace(reHyphen, QString());
 
-  // 3. \n simples → espaço  |  \n\n (parágrafo) → preservado
   const QString kParaMark = QStringLiteral("\x00\x01");
   s.replace(QLatin1String("\n\n"), kParaMark);
   s.replace(QLatin1Char('\n'), QLatin1Char(' '));
   s.replace(kParaMark, QLatin1String("\n\n"));
 
-  // 4. Múltiplos espaços → um único
   static const QRegularExpression reSpaces(QStringLiteral("  +"));
   s.replace(reSpaces, QStringLiteral(" "));
 
-  // 5. Espaço residual antes de parágrafo
   static const QRegularExpression reTrail(QStringLiteral(" \\n\\n"));
   s.replace(reTrail, QStringLiteral("\n\n"));
 
@@ -121,28 +114,30 @@ PdfTextLayer::PdfTextLayer(PageRectFn pageRectFn, ScaleFn scaleFn,
                            QObject *parent)
     : QObject(parent), m_pageRectFn(std::move(pageRectFn)),
       m_scaleFn(std::move(scaleFn)) {
-  // Throttle de 16 ms ≈ 60 fps para computeTextFlowSelection.
-  // Sem isso, pg->textList() seria chamado a cada pixel arrastado.
+
+  // Throttle de seleção (16 ms ≈ 60 fps)
   m_selThrottle = new QTimer(this);
   m_selThrottle->setSingleShot(true);
   m_selThrottle->setInterval(16);
-
   connect(m_selThrottle, &QTimer::timeout, this, [this] {
     if (!m_selPending)
       return;
     m_selPending = false;
-
     const QRect oldRect = selectionBoundingRectWidget();
     computeTextFlowSelection();
     const QRect newRect = selectionBoundingRectWidget();
-
-    // Repinta apenas a união da área antiga + nova (dirty rect mínimo)
     const QRect dirty = oldRect.united(newRect);
     if (dirty.isEmpty())
       emit repaintAll();
     else
       emit repaintNeeded(dirty.adjusted(-4, -4, 4, 4));
   });
+
+  // Timer de multi-clique — expira e reseta o contador de cliques
+  m_clickTimer = new QTimer(this);
+  m_clickTimer->setSingleShot(true);
+  m_clickTimer->setInterval(kMultiClickMs);
+  connect(m_clickTimer, &QTimer::timeout, this, [this] { m_clickCount = 0; });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -151,11 +146,7 @@ PdfTextLayer::PdfTextLayer(PageRectFn pageRectFn, ScaleFn scaleFn,
 void PdfTextLayer::setDocument(Poppler::Document *doc, int pageCount) {
   m_doc = doc;
   m_pageCount = pageCount;
-
-  // Invalida o word cache do documento anterior.
-  // Os rects Poppler pertencem ao documento — não podem ser reutilizados.
   m_wordCache.clear();
-
   clearSelection();
   clearSearchHighlights();
 }
@@ -200,6 +191,16 @@ Qt::CursorShape PdfTextLayer::suggestedCursor() const noexcept {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Cor ativa de highlight
+// ─────────────────────────────────────────────────────────────────────────────
+void PdfTextLayer::setHighlightColor(const QColor &color) {
+  if (m_activeHlColor == color)
+    return;
+  m_activeHlColor = color;
+  emit highlightColorChanged(color);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Seleção de texto
 // ─────────────────────────────────────────────────────────────────────────────
 void PdfTextLayer::clearSelection() {
@@ -223,7 +224,6 @@ void PdfTextLayer::copyToClipboard() {
 void PdfTextLayer::addHighlight(const HighlightEntry &h) {
   HighlightEntry entry = h;
   ensureMergedRects(entry);
-
   for (auto &existing : m_highlights) {
     if (existing.id == entry.id) {
       existing = entry;
@@ -262,7 +262,6 @@ QString PdfTextLayer::highlightIdAtPoint(const QPoint &widgetPos) const {
       if (!pr.isValid())
         continue;
       const qreal scale = m_scaleFn(span.page);
-      // Prefere mergedPtRects (hit-testing mais preciso) quando disponíveis
       const QVector<QRectF> &rects =
           span.mergedPtRects.isEmpty() ? span.ptRects : span.mergedPtRects;
       for (const QRectF &ptR : rects) {
@@ -294,12 +293,49 @@ void PdfTextLayer::clearSearchHighlights() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// handleMousePress
+// handleMousePress — inclui Shift+click e multi-click
 // ─────────────────────────────────────────────────────────────────────────────
 bool PdfTextLayer::handleMousePress(QMouseEvent *e) {
   if (e->button() != Qt::LeftButton)
     return false;
 
+  // ── Shift+click: estende a seleção existente ──────────────────────────
+  if ((e->modifiers() & Qt::ShiftModifier) && (m_hasSelection || m_selecting)) {
+    m_selCurrent = e->pos();
+    if (m_selMode == SelectionMode::RectMode)
+      computeSelection();
+    else
+      computeTextFlowSelection();
+    emit repaintAll();
+    return true;
+  }
+
+  // ── Rastreio de multi-clique ──────────────────────────────────────────
+  const bool samePos =
+      (e->pos() - m_lastClickPos).manhattanLength() <= kClickProximity;
+
+  if (m_clickTimer->isActive() && samePos) {
+    m_clickTimer->stop();
+    m_clickCount++;
+  } else {
+    m_clickCount = 1;
+  }
+  m_lastClickPos = e->pos();
+  m_clickTimer->start(kMultiClickMs);
+
+  // ── Duplo-clique: seleciona palavra ───────────────────────────────────
+  if (m_clickCount == 2) {
+    selectWordAt(e->pos());
+    return true;
+  }
+  // ── Triplo-clique: seleciona linha ────────────────────────────────────
+  if (m_clickCount >= 3) {
+    m_clickCount = 0;
+    selectLineAt(e->pos());
+    return true;
+  }
+
+  // ── Clique simples: inicia arrasto ────────────────────────────────────
   m_selThrottle->stop();
   m_selPending = false;
   m_selecting = true;
@@ -322,12 +358,10 @@ bool PdfTextLayer::handleMouseMove(QMouseEvent *e) {
   m_selCurrent = e->pos();
 
   if (m_selMode == SelectionMode::TextFlowMode) {
-    // Agenda processamento no próximo tick do throttle (16 ms)
     m_selPending = true;
     if (!m_selThrottle->isActive())
       m_selThrottle->start();
   } else {
-    // RectMode: repinta apenas o rubber-band (dirty rect mínimo)
     const QRect rubber = QRect(m_selOrigin, m_selCurrent).normalized();
     emit repaintNeeded(rubber.adjusted(-2, -2, 2, 2));
   }
@@ -351,25 +385,10 @@ bool PdfTextLayer::handleMouseRelease(QMouseEvent *e) {
   else
     computeTextFlowSelection();
 
-  // Modo Annotate: converte seleção em highlight permanente
+  // Modo Annotate: cria highlight com a cor ativa ao soltar
   if (m_toolMode == ToolMode::Annotate && m_hasSelection &&
       !m_selectedText.isEmpty()) {
-    HighlightEntry h;
-    h.id = QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
-    h.text = m_selectedText;
-    for (const auto &ps : std::as_const(m_pageSelections)) {
-      HighlightPageSpan span;
-      span.page = ps.page;
-      span.ptRects = ps.ptRects;
-      h.spans.append(span);
-    }
-    if (!h.spans.isEmpty())
-      emit highlightRequested(h);
-
-    // Limpa seleção visual após criar o highlight
-    m_hasSelection = false;
-    m_pageSelections.clear();
-    m_selectedText.clear();
+    createHighlightFromSelection(m_activeHlColor);
   }
 
   emit repaintAll();
@@ -377,13 +396,20 @@ bool PdfTextLayer::handleMouseRelease(QMouseEvent *e) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// handleKeyPress — consome apenas Ctrl+C e Escape
+// handleKeyPress
 // ─────────────────────────────────────────────────────────────────────────────
 bool PdfTextLayer::handleKeyPress(QKeyEvent *e) {
   switch (e->key()) {
   case Qt::Key_C:
     if (e->modifiers() & Qt::ControlModifier) {
       copyToClipboard();
+      return true;
+    }
+    break;
+  case Qt::Key_H:
+    // Ctrl+H: cria highlight com a cor ativa
+    if ((e->modifiers() & Qt::ControlModifier) && m_hasSelection) {
+      createHighlightFromSelection(m_activeHlColor);
       return true;
     }
     break;
@@ -400,11 +426,12 @@ bool PdfTextLayer::handleKeyPress(QKeyEvent *e) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// handleContextMenu
+// handleContextMenu — inclui submenu "Destacar como" com 4 cores
 // ─────────────────────────────────────────────────────────────────────────────
 void PdfTextLayer::handleContextMenu(QContextMenuEvent *e, QWidget *viewport) {
   QMenu menu(viewport);
 
+  // ── Excluir highlight existente ───────────────────────────────────────
   const QString hlId = highlightIdAtPoint(e->pos());
   if (!hlId.isEmpty()) {
     auto *actDel = menu.addAction(
@@ -414,16 +441,51 @@ void PdfTextLayer::handleContextMenu(QContextMenuEvent *e, QWidget *viewport) {
     menu.addSeparator();
   }
 
+  // ── Ações de seleção ─────────────────────────────────────────────────
   if (m_hasSelection) {
+    // Copiar
     auto *actCopy =
         menu.addAction(QIcon::fromTheme(QStringLiteral("edit-copy")),
                        QCoreApplication::translate(
                            "PdfTextLayer", "Copiar texto selecionado\tCtrl+C"));
     QObject::connect(actCopy, &QAction::triggered, this,
                      &PdfTextLayer::copyToClipboard);
+
+    // Submenu: Destacar como…
+    auto *subHL = menu.addMenu(
+        QCoreApplication::translate("PdfTextLayer", "Destacar como"));
+
+    struct ColorOpt {
+      const char *name;
+      QColor color;
+    };
+    static const ColorOpt kColors[] = {
+        {"Amarelo", QColor(255, 220, 0, 150)},
+        {"Ciano", QColor(26, 196, 255, 150)},
+        {"Verde", QColor(80, 210, 80, 150)},
+        {"Rosa", QColor(255, 100, 180, 150)},
+    };
+    for (const auto &opt : kColors) {
+      QPixmap px(14, 14);
+      px.fill(QColor(0, 0, 0, 0));
+      {
+        QPainter pp(&px);
+        pp.setRenderHint(QPainter::Antialiasing);
+        pp.setPen(Qt::NoPen);
+        pp.setBrush(opt.color);
+        pp.drawRoundedRect(QRectF(1, 1, 12, 12), 3, 3);
+      }
+      const QColor c = opt.color;
+      auto *act = subHL->addAction(
+          QIcon(px), QCoreApplication::translate("PdfTextLayer", opt.name));
+      QObject::connect(act, &QAction::triggered, this,
+                       [this, c] { createHighlightFromSelection(c); });
+    }
+
     menu.addSeparator();
   }
 
+  // ── Alternar modo de seleção ──────────────────────────────────────────
   const bool isFlow = (m_selMode == SelectionMode::TextFlowMode);
   auto *actToggle = menu.addAction(
       isFlow ? QCoreApplication::translate("PdfTextLayer",
@@ -438,11 +500,11 @@ void PdfTextLayer::handleContextMenu(QContextMenuEvent *e, QWidget *viewport) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// paintOverlays — pinta TODOS os overlays de texto em ordem correta:
-//   1. Highlights permanentes (desenhados ANTES da seleção)
-//   2. Highlights de busca (temporários, azul-ciano)
-//   3. Seleção de texto (azul translúcido)
-//   4. Rubber-band retangular (apenas durante drag em RectMode)
+// paintOverlays
+//   1. Highlights permanentes
+//   2. Highlights de busca
+//   3. Seleção de texto
+//   4. Rubber-band retangular (RectMode)
 // ─────────────────────────────────────────────────────────────────────────────
 void PdfTextLayer::paintOverlays(QPainter &p, const QRect &clip) const {
   // ── 1. Highlights permanentes ─────────────────────────────────────────
@@ -452,7 +514,6 @@ void PdfTextLayer::paintOverlays(QPainter &p, const QRect &clip) const {
       if (!pr.isValid() || !pr.intersects(clip))
         continue;
       const qreal scale = m_scaleFn(span.page);
-
       QVector<QRectF> widgetRects;
       widgetRects.reserve(span.mergedPtRects.size());
       for (const QRectF &ptR : span.mergedPtRects) {
@@ -470,7 +531,6 @@ void PdfTextLayer::paintOverlays(QPainter &p, const QRect &clip) const {
     if (pr.isValid() && pr.intersects(clip)) {
       const qreal scale = m_scaleFn(m_searchHlPage);
       static const QColor kSearchColor(0x1A, 0xC4, 0xFF, 120);
-
       QVector<QRectF> widgetRects;
       widgetRects.reserve(m_searchHlRects.size());
       for (const QRectF &r : m_searchHlRects) {
@@ -485,28 +545,34 @@ void PdfTextLayer::paintOverlays(QPainter &p, const QRect &clip) const {
   // ── 3. Seleção de texto ───────────────────────────────────────────────
   paintSelection(p, clip);
 
-  // ── 4. Rubber-band retangular ─────────────────────────────────────────
+  // ── 4. Rubber-band retangular (polido) ────────────────────────────────
   if (m_selecting && m_selMode == SelectionMode::RectMode) {
     const QRect selRect = QRect(m_selOrigin, m_selCurrent).normalized();
     if (!selRect.isEmpty()) {
       p.save();
       p.setRenderHint(QPainter::Antialiasing, true);
-      p.setPen(QPen(QColor(0x33, 0x99, 0xFF, 220), 1, Qt::DashLine));
-      p.setBrush(QColor(0x33, 0x99, 0xFF, 30));
-      p.drawRect(selRect);
+      // Preenchimento translúcido
+      p.setPen(Qt::NoPen);
+      p.setBrush(QColor(0x33, 0x99, 0xFF, 35));
+      p.drawRoundedRect(selRect, 3, 3);
+      // Borda sólida
+      p.setPen(QPen(QColor(0x33, 0x99, 0xFF, 210), 1.5, Qt::SolidLine));
+      p.setBrush(Qt::NoBrush);
+      p.drawRoundedRect(selRect.adjusted(1, 1, -1, -1), 3, 3);
       p.restore();
     }
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// paintSelection — overlay azul da seleção de texto atual
+// paintSelection — overlay azul da seleção, com borda sutil para legibilidade
 // ─────────────────────────────────────────────────────────────────────────────
 void PdfTextLayer::paintSelection(QPainter &p, const QRect &clip) const {
   if (!m_hasSelection)
     return;
 
-  static const QColor kSelColor(0x33, 0x99, 0xFF, 100);
+  static const QColor kSelFill(0x33, 0x99, 0xFF, 85);
+  static const QColor kSelStroke(0x33, 0x99, 0xFF, 170);
 
   for (const auto &ps : m_pageSelections) {
     const QRect pr = m_pageRectFn(ps.page);
@@ -521,24 +587,13 @@ void PdfTextLayer::paintSelection(QPainter &p, const QRect &clip) const {
                                 ptR.y() * scale + pr.y(), ptR.width() * scale,
                                 ptR.height() * scale));
     }
-    paintHighlightRects(p, widgetRects, kSelColor, kHlCornerRadius);
+    paintHighlightRects(p, widgetRects, kSelFill, kHlCornerRadius, kSelStroke,
+                        0.8);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// getPageWords — retorna (e constrói se necessário) o cache de WordInfo
-//
-// Por que isso importa:
-//   Poppler::Page::textList() percorre a árvore de texto e aloca centenas de
-//   TextBox. Chamá-lo em todo mouseMoveEvent bloqueava o event loop por vários
-//   ms. Com o cache, cada página é processada uma única vez por sessão.
-//
-//   Os rects estão em pontos PDF (invariantes de zoom/DPI), portanto o cache
-//   é válido enquanto o mesmo documento estiver aberto.
-//
-// Retorno por valor (implicit-share copy, O(1)):
-//   QCache pode eviccionar o item durante um insert() posterior; retornar
-//   referência a item eviccionado seria UB.
+// getPageWords
 // ─────────────────────────────────────────────────────────────────────────────
 QVector<PdfTextLayer::WordInfo> PdfTextLayer::getPageWords(int page) {
   if (auto *cached = m_wordCache.object(page))
@@ -569,9 +624,7 @@ QVector<PdfTextLayer::WordInfo> PdfTextLayer::getPageWords(int page) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ensureMergedRects — preenche span.mergedPtRects se ainda estiver vazio.
-// Chamado em addHighlight() e, como fallback, para highlights carregados
-// do disco que ainda não têm o cache pré-calculado.
+// ensureMergedRects
 // ─────────────────────────────────────────────────────────────────────────────
 void PdfTextLayer::ensureMergedRects(HighlightEntry &h) {
   for (auto &span : h.spans) {
@@ -581,11 +634,7 @@ void PdfTextLayer::ensureMergedRects(HighlightEntry &h) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// widgetPointToPagePt — converte ponto do widget em coordenadas de ponto PDF
-//
-// A lambda m_pageRectFn retorna {} para páginas fora da área visível,
-// portanto a iteração completa é segura mesmo em documentos com centenas
-// de páginas — a maioria retorna pr.isValid() == false imediatamente.
+// widgetPointToPagePt
 // ─────────────────────────────────────────────────────────────────────────────
 bool PdfTextLayer::widgetPointToPagePt(const QPoint &wp, int *outPage,
                                        qreal *outPtX, qreal *outPtY) const {
@@ -605,8 +654,7 @@ bool PdfTextLayer::widgetPointToPagePt(const QPoint &wp, int *outPage,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// selectionBoundingRectWidget — bounding rect da seleção em coords do widget.
-// Usado para update(rect) parcial, evitando repaint completo.
+// selectionBoundingRectWidget
 // ─────────────────────────────────────────────────────────────────────────────
 QRect PdfTextLayer::selectionBoundingRectWidget() const {
   if (m_pageSelections.isEmpty())
@@ -628,9 +676,125 @@ QRect PdfTextLayer::selectionBoundingRectWidget() const {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// selectWordAt — duplo-clique: seleciona a palavra sob o cursor
+// ─────────────────────────────────────────────────────────────────────────────
+void PdfTextLayer::selectWordAt(const QPoint &widgetPos) {
+  int page = -1;
+  qreal ptX = 0, ptY = 0;
+  if (!widgetPointToPagePt(widgetPos, &page, &ptX, &ptY))
+    return;
+
+  const auto words = getPageWords(page);
+  for (const WordInfo &wi : words) {
+    // Verifica bbox expandida levemente para facilitar o hit em bordas
+    if (!wi.bbox.adjusted(-1, -1, 1, 1).contains(ptX, ptY))
+      continue;
+
+    QVector<QRectF> rects;
+    rects.reserve(wi.charBoxes.size());
+    for (const QRectF &cb : wi.charBoxes)
+      if (!cb.isEmpty())
+        rects.append(cb);
+    if (rects.isEmpty())
+      rects.append(wi.bbox);
+
+    m_pageSelections.clear();
+    m_pageSelections.append({page, rects});
+    m_selectedText = wi.text;
+    m_hasSelection = true;
+    m_selecting = false;
+    emit textSelected(m_selectedText);
+    emit repaintAll();
+    return;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// selectLineAt — triplo-clique: seleciona a linha inteira sob o cursor
+// ─────────────────────────────────────────────────────────────────────────────
+void PdfTextLayer::selectLineAt(const QPoint &widgetPos) {
+  int page = -1;
+  qreal ptX = 0, ptY = 0;
+  if (!widgetPointToPagePt(widgetPos, &page, &ptX, &ptY))
+    return;
+
+  const auto words = getPageWords(page);
+
+  // Encontra o Y central da linha clicada
+  qreal lineY = -1, lineH = 0;
+  for (const WordInfo &wi : words) {
+    if (wi.bbox.adjusted(-1, -1, 1, 1).contains(ptX, ptY)) {
+      lineY = wi.bbox.center().y();
+      lineH = wi.bbox.height();
+      break;
+    }
+  }
+  if (lineY < 0)
+    return;
+
+  // Coleta todas as palavras nessa linha (mesma faixa Y)
+  QVector<QRectF> rects;
+  QString lineText;
+  bool prevSpace = false;
+
+  for (const WordInfo &wi : words) {
+    if (qAbs(wi.bbox.center().y() - lineY) > lineH * 0.60)
+      continue;
+
+    if (!lineText.isEmpty() && prevSpace)
+      lineText += QLatin1Char(' ');
+
+    for (const QRectF &cb : wi.charBoxes)
+      if (!cb.isEmpty())
+        rects.append(cb);
+    if (rects.isEmpty())
+      rects.append(wi.bbox);
+
+    lineText += wi.text;
+    prevSpace = wi.hasSpaceAfter;
+  }
+
+  if (rects.isEmpty())
+    return;
+
+  m_pageSelections.clear();
+  m_pageSelections.append({page, rects});
+  m_selectedText = lineText;
+  m_hasSelection = true;
+  m_selecting = false;
+  emit textSelected(m_selectedText);
+  emit repaintAll();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createHighlightFromSelection — emite highlightRequested e limpa a seleção
+// ─────────────────────────────────────────────────────────────────────────────
+void PdfTextLayer::createHighlightFromSelection(const QColor &color) {
+  if (!m_hasSelection || m_selectedText.isEmpty())
+    return;
+
+  HighlightEntry h;
+  h.id = QUuid::createUuid().toString(QUuid::WithoutBraces).left(8);
+  h.text = m_selectedText;
+  h.color = color;
+  for (const auto &ps : std::as_const(m_pageSelections)) {
+    HighlightPageSpan span;
+    span.page = ps.page;
+    span.ptRects = ps.ptRects;
+    h.spans.append(span);
+  }
+  if (!h.spans.isEmpty())
+    emit highlightRequested(h);
+
+  // Limpa seleção visual após criar o highlight
+  m_hasSelection = false;
+  m_pageSelections.clear();
+  m_selectedText.clear();
+  emit repaintAll();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // computeSelection — RectMode
-// Extrai texto da área retangular selecionada via Poppler::Page::text().
-// Chamado uma única vez no mouseRelease — não precisa de cache.
 // ─────────────────────────────────────────────────────────────────────────────
 void PdfTextLayer::computeSelection() {
   m_pageSelections.clear();
@@ -678,15 +842,7 @@ void PdfTextLayer::computeSelection() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// computeTextFlowSelection — TextFlowMode
-//
-// Melhorias em relação à versão original de PdfCanvasView:
-//   1. Word cache (getPageWords): pg->textList() chamado no máximo uma vez
-//      por página por sessão — reduz de ~8 ms/frame para < 0,5 ms/frame.
-//   2. Sem alocações de Page por frame: apenas QVector<QRectF> do cache.
-//   3. Chamado pelo throttle timer, não diretamente em mouseMoveEvent.
-//   4. m_pageRectFn retorna {} para páginas fora da área — loop seguro para
-//      ambas as views (scroll contínuo e spread).
+// computeTextFlowSelection — TextFlowMode (chamado pelo throttle)
 // ─────────────────────────────────────────────────────────────────────────────
 void PdfTextLayer::computeTextFlowSelection() {
   m_pageSelections.clear();
@@ -707,7 +863,6 @@ void PdfTextLayer::computeTextFlowSelection() {
   widgetPointToPagePt(topWidget, &startPage, &startPtX, &startPtY);
   widgetPointToPagePt(botWidget, &endPage, &endPtX, &endPtY);
 
-  // Fallback: clique acima de todas as páginas → começa da primeira visível
   if (startPage < 0) {
     for (int i = 0; i < m_pageCount; ++i) {
       const QRect pr = m_pageRectFn(i);
@@ -721,7 +876,6 @@ void PdfTextLayer::computeTextFlowSelection() {
     if (startPage < 0)
       startPage = 0;
   }
-  // Fallback: clique abaixo de todas as páginas → termina na última visível
   if (endPage < 0) {
     for (int i = m_pageCount - 1; i >= 0; --i) {
       const QRect pr = m_pageRectFn(i);
@@ -765,7 +919,6 @@ void PdfTextLayer::computeTextFlowSelection() {
       const qreal cy = wi.bbox.center().y();
       const qreal hh = wi.bbox.height() * 0.6;
       const int nChars = wi.text.length();
-
       if (nChars == 0)
         continue;
 
@@ -813,7 +966,6 @@ void PdfTextLayer::computeTextFlowSelection() {
           wordAddedAnyChar = true;
         }
       }
-
       if (wordAddedAnyChar)
         prevHadSpace = wi.hasSpaceAfter;
     }

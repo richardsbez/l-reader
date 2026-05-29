@@ -7,6 +7,7 @@
 //   • setSidebarCasualMode() — adapta o sidebar ao modo Casual
 //   • wireModeSignals() / wireDocumentSignals()
 
+#include "CasualMode/casual_mode_widget.hpp"
 #include "DocumentEngine/ebook_engine.hpp"
 #include "DocumentEngine/pdf_engine.hpp"
 #include "bookmark_item_widget.hpp"
@@ -140,10 +141,16 @@ void MainWindow::openDocument(const QString &path) {
         m_sidecar->trackDocument(p);
         m_modeManager->transitionTo(ModeType::Standard);
 
-        // ── Modo Casual — alimenta o controller ───────────────────────────
+        // ── Modo Casual — alimenta o controller + modelos de sidebar ──────
         const int startPage =
             m_sidecar ? std::max(0, m_sidecar->loadPagePosition()) : 0;
         m_casualWidget->controller()->setDocument(m_engine.get(), startPage);
+
+        // Limpa modelos anteriores enquanto o TOC assíncrono não chega
+        // (onTocReady vai preencher o tocModel)
+        m_casualWidget->setHighlights(m_highlightManager->highlights());
+        m_casualWidget->setBookmarks(m_bookmarkManager->bookmarks());
+        m_casualWidget->setCurrentPage(startPage);
       });
 
   connect(m_engine.get(), &DocumentEngine::loadFailed, this,
@@ -484,10 +491,70 @@ void MainWindow::wireDocumentSignals() {
       QSignalBlocker blocker(btn);
       btn->setChecked(true);
     }
+
+    // ── Seletor de cor de highlight ──────────────────────────────────────
+    // Cada botão swatch define a cor ativa em m_pdfView->setHighlightColor().
+    // O toolAnnotateBtn usa essa cor ao criar highlights. Ctrl+H também.
+    {
+      struct HlColorDef {
+        const char *name;
+        QColor color;
+      };
+      const HlColorDef kHlColors[] = {
+          {"hlBtnYellow", QColor(255, 220, 0, 150)},
+          {"hlBtnCyan", QColor(26, 196, 255, 150)},
+          {"hlBtnGreen", QColor(80, 210, 80, 150)},
+          {"hlBtnPink", QColor(255, 100, 180, 150)},
+      };
+      for (const auto &kv : kHlColors) {
+        auto *btn = findChild<QToolButton *>(QString::fromLatin1(kv.name));
+        if (!btn)
+          continue;
+        const QColor c = kv.color;
+        connect(btn, &QToolButton::toggled, this, [this, c](bool checked) {
+          if (checked && m_pdfView)
+            m_pdfView->setHighlightColor(c);
+        });
+      }
+      // Inicializa a cor padrão (amarelo) no pdfView quando conectado
+      if (m_pdfView)
+        m_pdfView->setHighlightColor(QColor(255, 220, 0, 150));
+    }
   }
 
-  // Modo Casual — navegação de capítulo pedida pelo QML
+  // Modo Casual — navegação de capítulo pedida pelo QML (EPUB)
   connect(m_casualWidget->controller(),
           &CasualModeController::chapterNavigationRequested, this,
           [this](int chapterIndex) { loadEpubChapter(chapterIndex); });
+
+  // Modo Casual — navegação de página pedida pelo QML (PDF: TOC / anotação /
+  // marcador)
+  connect(m_casualWidget->controller(),
+          &CasualModeController::pageNavigationRequested, this,
+          [this](int page) {
+            // Move o spread do modo Casual (view principal quando em
+            // ModeType::Casual+PDF)
+            if (m_casualPdfView)
+              m_casualPdfView->goToSpread(page);
+            // Sincroniza também o pdfView padrão para que ao sair do Casual
+            // a posição seja mantida
+            if (m_pdfView)
+              m_pdfView->goToPage(page);
+          });
+
+  // Anotações/marcadores do sidebar Casual também navegam pela casualPdfView
+  connect(m_casualWidget->annotModel(), &CasualAnnotModel::navigateToPage, this,
+          [this](int page) {
+            if (m_casualPdfView)
+              m_casualPdfView->goToSpread(page);
+            if (m_pdfView)
+              m_pdfView->goToPage(page);
+          });
+  connect(m_casualWidget->bookmarkModel(), &CasualBookmarkModel::navigateToPage,
+          this, [this](int page) {
+            if (m_casualPdfView)
+              m_casualPdfView->goToSpread(page);
+            if (m_pdfView)
+              m_pdfView->goToPage(page);
+          });
 }

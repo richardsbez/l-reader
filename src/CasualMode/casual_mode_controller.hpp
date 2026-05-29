@@ -150,6 +150,10 @@ public slots:
   Q_INVOKABLE void requestNextChapter();
   Q_INVOKABLE void requestPrevChapter();
 
+  // Navegação de página a partir do QML (TOC clique, anotação, marcador).
+  // Emite pageNavigationRequested — a MainWindow é quem realmente move a view.
+  Q_INVOKABLE void navigateToPage(int page);
+
   // Setters de tipografia / tema
   void setTheme(int theme);
   void setFontSize(int size);
@@ -184,6 +188,11 @@ signals:
   // Emitido por requestNextChapter/prevChapter e setCurrentChapterIndex().
   // MainWindow conecta este sinal e chama loadEpubChapter(index).
   void chapterNavigationRequested(int chapterIndex);
+
+  // Emitido quando o QML pede navegação por página (TOC, anotação, marcador).
+  // MainWindow conecta e chama casualPdfView->goToSpread(page) /
+  // pdfView->goToPage(page).
+  void pageNavigationRequested(int page);
 
 private:
   // ── Helpers internos ──────────────────────────────────────────────────────

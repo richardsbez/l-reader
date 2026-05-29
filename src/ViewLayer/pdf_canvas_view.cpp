@@ -181,6 +181,12 @@ void PdfCanvasView::setSearchHighlights(int page, const QList<QRectF> &r) {
 void PdfCanvasView::clearSearchHighlights() {
   m_textLayer->clearSearchHighlights();
 }
+void PdfCanvasView::setHighlightColor(const QColor &color) {
+  m_textLayer->setHighlightColor(color);
+}
+QColor PdfCanvasView::highlightColor() const {
+  return m_textLayer->highlightColor();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // goToPage

@@ -1,22 +1,18 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/CasualMode/casual_mode_widget.hpp  —  l-reader · Modo Casual
+// casual_mode_widget.hpp  —  l-reader · Modo Casual
 //
-// Widget de integração: hospeda o motor QML (CasualModeView) dentro da
-// arquitectura QWidget existente usando QQuickWidget.
+// Widget de integração: hospeda o motor QML dentro da arquitectura QWidget
+// via QQuickWidget.
 //
-// Responsabilidades:
-//   • Criar e gerir CasualModeController (ciclo de vida ligado ao widget)
-//   • Expor o controller ao QML via setContextProperty("casualCtrl", ...)
-//   • Aplicar o estilo Quick Controls (Basic — sem dependência de Material)
-//   • Fornecer a URL do QML raiz compilada via qt_add_qml_module()
+// v2 — expõe os três modelos de sidebar ao QML:
+//   casualTocModel      → aba Sumário
+//   casualAnnotModel    → aba Anotações
+//   casualBookmarkModel → aba Marcadores
 //
-// Utilização em MainWindow:
-//   auto* casualWidget = new CasualModeWidget(this);
-//   centralStack->addWidget(casualWidget);   // QStackedWidget
-//   // Para activar:
-//   centralStack->setCurrentWidget(casualWidget);
-//   casualWidget->controller()->setSidebarOpen(false);
-// ─────────────────────────────────────────────────────────────────────────────
+// Os modelos são alimentados externamente pela MainWindow via:
+//   widget->setTocEntries(entries)
+//   widget->setHighlights(highlights)
+//   widget->setBookmarks(bookmarks)
+//   widget->setCurrentPage(page)      // actualiza highlight de TOC
 #pragma once
 
 #include <QQuickWidget>
@@ -26,35 +22,57 @@
 #include <QtQuickControls2/QQuickStyle>
 
 #include "casual_mode_controller.hpp"
+#include "casual_sidebar_models.hpp"
 
 class CasualModeWidget final : public QQuickWidget {
   Q_OBJECT
 
 public:
   explicit CasualModeWidget(QWidget *parent = nullptr)
-      : QQuickWidget(parent), m_controller(new CasualModeController(this)) {
-    // ── 1. Estilo dos Quick Controls ─────────────────────────────────────
-    // "Basic" é o único estilo sem dependência de plataforma (não usa
-    // Material/Fusion/Windows específicos) — ideal para uma UI custom.
+      : QQuickWidget(parent), m_controller(new CasualModeController(this)),
+        m_tocModel(new CasualTocModel(this)),
+        m_annotModel(new CasualAnnotModel(this)),
+        m_bookmarkModel(new CasualBookmarkModel(this)) {
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
-    // ── 2. Expor o controller ao motor QML ───────────────────────────────
-    // O ficheiro casual_mode_view.qml acede ao controller como "casualCtrl".
-    rootContext()->setContextProperty(QStringLiteral("casualCtrl"),
-                                      m_controller);
+    auto *ctx = rootContext();
+    ctx->setContextProperty(QStringLiteral("casualCtrl"), m_controller);
+    ctx->setContextProperty(QStringLiteral("tocListModel"), m_tocModel);
+    ctx->setContextProperty(QStringLiteral("annotListModel"), m_annotModel);
+    ctx->setContextProperty(QStringLiteral("bookmarkListModel"),
+                            m_bookmarkModel);
 
-    // ── 3. Comportamento do widget ────────────────────────────────────────
     setResizeMode(QQuickWidget::SizeRootObjectToView);
     setAttribute(Qt::WA_OpaquePaintEvent);
     setAttribute(Qt::WA_NoSystemBackground);
-
-    // ── 4. QML carregado no primeiro showEvent ────────────────────────────
-    // Adiado para evitar crash ao iniciar se o widget nunca for exibido
-    // (ex.: usuário abre PDF e nunca ativa o modo Casual EPUB).
   }
 
   [[nodiscard]] CasualModeController *controller() const noexcept {
     return m_controller;
+  }
+  [[nodiscard]] CasualTocModel *tocModel() const noexcept { return m_tocModel; }
+  [[nodiscard]] CasualAnnotModel *annotModel() const noexcept {
+    return m_annotModel;
+  }
+  [[nodiscard]] CasualBookmarkModel *bookmarkModel() const noexcept {
+    return m_bookmarkModel;
+  }
+
+  // ── Alimentação de dados — chamados pela MainWindow ───────────────────
+  void setTocEntries(const QList<TocEntry> &entries) {
+    m_tocModel->setEntries(entries);
+  }
+  void setHighlights(const QVector<HighlightEntry> &highlights) {
+    m_annotModel->setHighlights(highlights);
+  }
+  void setBookmarks(const QList<BookmarkEntry> &bookmarks) {
+    m_bookmarkModel->setBookmarks(bookmarks);
+  }
+  void setCurrentPage(int page) { m_tocModel->setCurrentPage(page); }
+  void clearSidebarData() {
+    m_tocModel->clear();
+    m_annotModel->clear();
+    m_bookmarkModel->clear();
   }
 
 protected:
@@ -69,5 +87,8 @@ protected:
 
 private:
   CasualModeController *const m_controller;
+  CasualTocModel *const m_tocModel;
+  CasualAnnotModel *const m_annotModel;
+  CasualBookmarkModel *const m_bookmarkModel;
   bool m_qmlLoaded = false;
 };

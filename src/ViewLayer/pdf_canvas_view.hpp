@@ -66,6 +66,10 @@ public slots:
   void setSearchHighlights(int page, const QList<QRectF> &ptRects);
   void clearSearchHighlights();
 
+  // ── Cor ativa de highlight ─────────────────────────────────────────────
+  void setHighlightColor(const QColor &color);
+  [[nodiscard]] QColor highlightColor() const;
+
 signals:
   void currentPageChanged(int page);
   void zoomChanged(qreal zoom);

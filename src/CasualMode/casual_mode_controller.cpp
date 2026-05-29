@@ -175,6 +175,12 @@ void CasualModeController::requestPrevChapter() {
   setCurrentChapterIndex(m_chapterIndex - 1);
 }
 
+// navigateToPage — chamado pelo QML ao clicar em TOC, anotação ou marcador.
+// Apenas emite o sinal; quem realmente move a view é a MainWindow.
+void CasualModeController::navigateToPage(int page) {
+  emit pageNavigationRequested(page);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // loadChapterContent — lê o HTML do ficheiro de spine e popula m_chapterHtml.
 //

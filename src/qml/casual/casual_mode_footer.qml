@@ -12,7 +12,7 @@ import QtQuick.Layouts
 
 Item {
     id: root
-    height: 32
+    height: 20
 
     Rectangle {
         anchors.fill: parent
@@ -23,7 +23,7 @@ Item {
         ColumnLayout {
             anchors {
                 fill:         parent
-                leftMargin:   16
+                leftMargin:   250 + 16
                 rightMargin:  16
                 topMargin:    6
                 bottomMargin: 4
