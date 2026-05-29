@@ -42,9 +42,15 @@ using namespace Qt::Literals::StringLiterals;
 // buildUi — monta toda a estrutura de widgets central + sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 void MainWindow::buildUi() {
-  m_toolbar = addToolBar(QStringLiteral("Principal"));
+  // m_toolbar é um overlay filho da janela (não registado em nenhuma
+  // ToolBarArea). Tal como o m_bottomNav, a sua posição é gerida por
+  // repositionToolbar(), chamado em resizeEvent() e sempre que a sidebar muda
+  // de estado. Em modos não-Casual a sidebar está oculta, logo a toolbar ocupa
+  // a largura total.
+  m_toolbar = new QToolBar(QStringLiteral("Principal"), this);
   m_toolbar->setMovable(false);
   m_toolbar->setIconSize(Layout::Toolbar::kIconSize);
+  m_toolbar->setFixedHeight(Layout::Toolbar::kHeight);
 
   // ══════════════════════════════════════════════════════════════════════════
   // SIDEBAR ESQUERDA
@@ -484,12 +490,17 @@ void MainWindow::buildUi() {
   // o canto pertence ao dock esquerdo, que assim se estende até à barra.
   setCorner(Qt::BottomLeftCorner, Qt::LeftDockWidgetArea);
 
-  // Ajusta o espaçador da barra inferior sempre que a sidebar mostra/esconde
+  // Ajusta os overlays sempre que a sidebar mostra/esconde
   // ou muda de geometria (e.g. o utilizador redimensiona o dock).
   connect(dock, &QDockWidget::visibilityChanged, this,
-          [this](bool /*visible*/) { updateBottomNavOffset(); });
-  connect(dock, &QDockWidget::topLevelChanged, this,
-          [this](bool /*floating*/) { updateBottomNavOffset(); });
+          [this](bool /*visible*/) {
+            updateBottomNavOffset();
+            repositionToolbar();
+          });
+  connect(dock, &QDockWidget::topLevelChanged, this, [this](bool /*floating*/) {
+    updateBottomNavOffset();
+    repositionToolbar();
+  });
   // QResizeEvent no dock actualiza o espaçador quando o utilizador
   // arrasta o separador entre sidebar e conteúdo.
   dock->installEventFilter(this);
@@ -770,6 +781,7 @@ void MainWindow::buildToolBarActions() {
   viewModeBtn->setObjectName(QStringLiteral("viewModeBtn"));
   viewModeBtn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
   viewModeBtn->setFixedHeight(Layout::Toolbar::kSideToggleSize.height());
+  m_viewModeBtn = viewModeBtn;
 
   m_toolbar->addSeparator();
   m_toolbar->addWidget(viewModeBtn);
@@ -861,6 +873,36 @@ void MainWindow::buildToolBarActions() {
     viewMenu->addAction(m_actModeStudy);
     viewMenu->addAction(m_actModeCasual);
 
+    // ── Submenu de Tema (Modo Casual) ──────────────────────────────────
+    QMenu *themeMenu = rootMenu->addMenu(tr("Tema"));
+    themeMenu->setObjectName(QStringLiteral("hamburgerThemeMenu"));
+
+    struct ThemeEntry {
+      const char *label;
+      int index;
+    };
+    static constexpr ThemeEntry kThemes[] = {
+        {"Claro", 0},     {"Escuro", 1},       {"Sépia", 2},
+        {"Solarized", 3}, {"Papel Quente", 4},
+    };
+    auto *themeGroup = new QActionGroup(themeMenu);
+    themeGroup->setExclusive(true);
+    for (const auto &te : kThemes) {
+      auto *act = themeMenu->addAction(tr(te.label));
+      act->setCheckable(true);
+      themeGroup->addAction(act);
+      const int idx = te.index;
+      connect(act, &QAction::triggered, this, [this, idx] {
+        if (m_casualWidget)
+          m_casualWidget->controller()->setTheme(idx);
+      });
+      // Mantém o checkmark sincronizado ao abrir o menu
+      connect(themeMenu, &QMenu::aboutToShow, this, [this, act, idx] {
+        if (m_casualWidget)
+          act->setChecked(m_casualWidget->controller()->theme() == idx);
+      });
+    }
+
     hamburger->setMenu(rootMenu);
     m_toolbar->addWidget(hamburger);
   }
@@ -882,10 +924,11 @@ void MainWindow::buildStatusBar() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// resizeEvent — reposiciona o overlay bottomNav quando a janela muda de tamanho
+// resizeEvent — reposiciona os overlays quando a janela muda de tamanho
 // ─────────────────────────────────────────────────────────────────────────────
 void MainWindow::resizeEvent(QResizeEvent *event) {
   QMainWindow::resizeEvent(event);
+  repositionToolbar();
   repositionBottomNav();
 }
 
@@ -915,3 +958,25 @@ void MainWindow::repositionBottomNav() {
 
 // Kept as alias so existing call-sites don't need changing.
 void MainWindow::updateBottomNavOffset() { repositionBottomNav(); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// repositionToolbar — posiciona o overlay da toolbar superior.
+//
+// Em Modo Casual com sidebar visível: começa depois da largura da sidebar.
+// Em outros modos (sidebar oculta): ocupa a largura total da janela.
+// ─────────────────────────────────────────────────────────────────────────────
+void MainWindow::repositionToolbar() {
+  if (!m_toolbar)
+    return;
+
+  auto *dock = qobject_cast<QDockWidget *>(m_sidebar);
+  const bool sidebarDocked = dock && dock->isVisible() && !dock->isFloating();
+  const int sidebarWidth = sidebarDocked ? dock->width() : 0;
+
+  const int navH = m_toolbar->height();
+  const int x = sidebarWidth;
+  const int w = width() - sidebarWidth;
+
+  m_toolbar->setGeometry(x, 0, w, navH);
+  m_toolbar->raise();
+}

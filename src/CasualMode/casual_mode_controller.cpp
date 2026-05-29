@@ -167,12 +167,34 @@ void CasualModeController::setCurrentChapterIndex(int index) {
 // ─────────────────────────────────────────────────────────────────────────────
 // requestNextChapter / requestPrevChapter — botões do footer QML
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// requestNextChapter / requestPrevChapter — botões do footer QML
+//
+// Para EPUB: navega pelo índice da spine.
+// Para PDF : emite pageNavigationRequested com +2/-2 páginas (spread).
+// ─────────────────────────────────────────────────────────────────────────────
 void CasualModeController::requestNextChapter() {
-  setCurrentChapterIndex(m_chapterIndex + 1);
+  if (!m_spineUrls.isEmpty()) {
+    // EPUB — navega pelo capítulo
+    setCurrentChapterIndex(m_chapterIndex + 1);
+  } else {
+    // PDF — avança um spread (2 páginas)
+    const int next = std::min(m_currentPage + 2, m_totalPages - 1);
+    if (next != m_currentPage)
+      emit pageNavigationRequested(next);
+  }
 }
 
 void CasualModeController::requestPrevChapter() {
-  setCurrentChapterIndex(m_chapterIndex - 1);
+  if (!m_spineUrls.isEmpty()) {
+    // EPUB — navega pelo capítulo
+    setCurrentChapterIndex(m_chapterIndex - 1);
+  } else {
+    // PDF — recua um spread (2 páginas)
+    const int prev = std::max(m_currentPage - 2, 0);
+    if (prev != m_currentPage)
+      emit pageNavigationRequested(prev);
+  }
 }
 
 // navigateToPage — chamado pelo QML ao clicar em TOC, anotação ou marcador.
@@ -194,6 +216,12 @@ void CasualModeController::loadChapterContent(int chapterIndex) {
   if (chapterIndex == m_loadedChapterIndex)
     return; // já em cache
 
+  // Sinaliza início de carregamento → QML mostra overlay suave
+  if (!m_chapterLoading) {
+    m_chapterLoading = true;
+    emit chapterLoadingChanged();
+  }
+
   m_loadedChapterIndex = chapterIndex;
   m_chapterIndex = chapterIndex;
   m_chapterUrl = m_spineUrls.at(chapterIndex);
@@ -201,12 +229,18 @@ void CasualModeController::loadChapterContent(int chapterIndex) {
   QFile f(m_chapterUrl.toLocalFile());
   if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
     m_chapterHtml = QStringLiteral("<p>Erro ao carregar capítulo.</p>");
+    m_chapterLoading = false;
+    emit chapterLoadingChanged();
     emit chapterChanged();
     return;
   }
 
   const QString fullHtml = QString::fromUtf8(f.readAll());
   m_chapterHtml = extractBodyContent(fullHtml);
+
+  // Carregamento concluído — notifica QML para esconder overlay
+  m_chapterLoading = false;
+  emit chapterLoadingChanged();
   emit chapterChanged();
 }
 
@@ -313,7 +347,7 @@ QString CasualModeController::mutedColor() const noexcept {
 // Setters — tipografia, tema, painéis
 // ─────────────────────────────────────────────────────────────────────────────
 void CasualModeController::setTheme(int theme) {
-  const auto t = static_cast<Theme>(std::clamp(theme, 0, 3));
+  const auto t = static_cast<Theme>(std::clamp(theme, 0, 4));
   if (m_theme == t)
     return;
   m_theme = t;

@@ -291,14 +291,14 @@ Item {
                         target: spread
                         property: "opacity"
                         to: 0.0
-                        duration: 120
+                        duration: 90
                         easing.type: Easing.InQuad
                     }
                     NumberAnimation {
                         target: spread
                         property: "opacity"
                         to: 1.0
-                        duration: 160
+                        duration: 130
                         easing.type: Easing.OutQuad
                     }
                 }
@@ -350,6 +350,62 @@ Item {
         CasualModeFooter {
             id: footer
             anchors { bottom: parent.bottom; left: parent.left; right: parent.right }
+        }
+
+        // ── Overlay de carregamento de capítulo ────────────────────────────
+        // Aparece brevemente ao trocar capítulo — evita flash de conteúdo antigo
+        Rectangle {
+            id: loadingOverlay
+            anchors.fill: readingArea
+            color: casualCtrl.bgColor
+            opacity: casualCtrl.chapterLoading ? 0.92 : 0.0
+            visible: opacity > 0.01
+
+            Behavior on color   { ColorAnimation  { duration: 200 } }
+            Behavior on opacity { NumberAnimation { duration: 100; easing.type: Easing.InOutQuad } }
+
+            // Indicador de progresso minimalista — traço horizontal animado
+            Item {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter:   parent.verticalCenter
+                width: 48; height: 48
+
+                // Arco rotativo fino
+                Canvas {
+                    id: loadingArc
+                    anchors.fill: parent
+                    rotation: loadingRotation.angle
+
+                    onPaint: {
+                        const ctx = getContext("2d")
+                        ctx.clearRect(0, 0, width, height)
+                        ctx.beginPath()
+                        ctx.arc(width/2, height/2, 18, -Math.PI/2, Math.PI * 0.8)
+                        ctx.strokeStyle = casualCtrl.accentColor
+                        ctx.lineWidth   = 2.5
+                        ctx.lineCap     = "round"
+                        ctx.stroke()
+                    }
+
+                    Connections {
+                        target: casualCtrl
+                        function onThemeChanged() { loadingArc.requestPaint() }
+                    }
+                }
+
+                // Animação de rotação contínua
+                NumberAnimation {
+                    id: loadingRotation
+                    property real angle: 0
+                    target: loadingArc
+                    property: "rotation"
+                    from: 0; to: 360
+                    duration: 900
+                    loops: Animation.Infinite
+                    running: loadingOverlay.visible
+                    easing.type: Easing.Linear
+                }
+            }
         }
     }
 }

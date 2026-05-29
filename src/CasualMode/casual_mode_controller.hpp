@@ -83,6 +83,9 @@ class CasualModeController final : public QObject {
                  sidebarOpenChanged)
   Q_PROPERTY(bool searchOpen READ searchOpen WRITE setSearchOpen NOTIFY
                  searchOpenChanged)
+  // Indica que um novo capítulo está a ser carregado (evita flash de conteúdo)
+  Q_PROPERTY(
+      bool chapterLoading READ chapterLoading NOTIFY chapterLoadingChanged)
 
 public:
   enum Theme {
@@ -90,6 +93,7 @@ public:
     Dark = 1,
     Sepia = 2,
     Solarized = 3,
+    Warm = 4,
   };
   Q_ENUM(Theme)
 
@@ -113,6 +117,7 @@ public:
   int lineSpacing() const noexcept { return m_lineSpacing; }
   bool sidebarOpen() const noexcept { return m_sidebarOpen; }
   bool searchOpen() const noexcept { return m_searchOpen; }
+  bool chapterLoading() const noexcept { return m_chapterLoading; }
 
   QVariantList chapterBreakPositions() const noexcept {
     return m_chapterBreaks;
@@ -174,6 +179,7 @@ signals:
   // ── Dados ────────────────────────────────────────────────────────────────
   void documentChanged();
   void chapterChanged();
+  void chapterLoadingChanged();
   void chapterTitleChanged();
   void readingProgressChanged();
   void currentPageChanged();
@@ -222,7 +228,7 @@ private:
     const char *border;
     const char *muted;
   };
-  static constexpr Palette kPalettes[4] = {
+  static constexpr Palette kPalettes[5] = {
       /* Light     */ {"#FAFAFA", "#1A1A1A", "#F5F5F5", "#CC0000", "#E0E0E0",
                        "#888888"},
       /* Dark      */
@@ -231,6 +237,8 @@ private:
       {"#F8F0E3", "#3B2D1F", "#F0E6D3", "#8B6042", "#D4C4A8", "#9A8070"},
       /* Solarized */
       {"#FDF6E3", "#657B83", "#EEE8D5", "#268BD2", "#D7CFBC", "#93A1A1"},
+      /* Warm/Papel Quente */
+      {"#F0E3D2", "#2C1F14", "#E8D5C0", "#A0522D", "#C8B49A", "#8B7055"},
   };
 
   // ── Estado do documento ───────────────────────────────────────────────────
@@ -275,4 +283,5 @@ private:
   // ── Painéis ───────────────────────────────────────────────────────────────
   bool m_sidebarOpen{false};
   bool m_searchOpen{false};
+  bool m_chapterLoading{false};
 };

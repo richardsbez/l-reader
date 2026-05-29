@@ -12,11 +12,13 @@
 
 #pragma once
 
+#include "CasualMode/casual_mode_controller.hpp"
 #include "DocumentEngine/highlight_entry.hpp"
 #include "RenderSubsystem/page_cache.hpp"
 #include "ViewLayer/pdf_text_layer.hpp"
 #include <QPixmap>
 #include <QPropertyAnimation>
+#include <QQuickWidget>
 #include <QTimer>
 #include <QVector>
 #include <QWidget>
@@ -43,6 +45,13 @@ public:
   [[nodiscard]] int pageCount() const { return m_pageCount; }
 
   void setBackgroundColor(const QColor &c);
+
+  // Liga o CasualModeController ao footer QML.
+  // Deve ser chamado antes de goToSpread() — normalmente em onModeChanged().
+  void setController(CasualModeController *ctrl);
+
+  // Altura reservada pelo footer QML (usado para calcular a área útil).
+  static constexpr int kFooterHeight = 44;
 
   void activateDpi();
   void deactivateDpi();
@@ -106,6 +115,11 @@ private:
   int m_leftPage = 0;
   QVector<QSizeF> m_pageSizes; ///< pré-carregados em setPageCache()
 
+  // ── Footer QML overlay ────────────────────────────────────────────────
+  QQuickWidget *m_footerWidget = nullptr;
+  CasualModeController *m_controller = nullptr;
+  void repositionFooter();
+
   // ── Rendering ────────────────────────────────────────────────────────
   QColor m_bg{0xF5, 0xF5, 0xF5};
   std::optional<QPixmap> m_leftPx;
@@ -115,8 +129,13 @@ private:
   QPropertyAnimation *m_fadeAnim = nullptr;
 
   QTimer *m_spinnerTimer = nullptr;
+  QTimer *m_spinnerDelayTimer = nullptr; // v2: adia exibição do spinner
+  bool m_showSpinner = false;            // v2: spinner só visível após delay
   int m_spinnerAngle = 0;
   qreal m_activeDpi = 0.0;
+
+  // Delay em ms antes de mostrar o spinner — evita flash em páginas rápidas.
+  static constexpr int kSpinnerDelayMs = 90;
 
   // ── Interação de texto ────────────────────────────────────────────────
   std::unique_ptr<PdfTextLayer> m_textLayer;
@@ -125,5 +144,6 @@ private:
   static constexpr int kGutterPx = 24;
   static constexpr int kPageMarginPx = 32;
   static constexpr int kShadowPx = 5;
-  static constexpr qreal kCasualDpi = 110.0;
+  static constexpr qreal kCasualDpi =
+      130.0; // v2: +18% resolução — texto mais nítido
 };

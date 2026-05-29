@@ -8,9 +8,14 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPropertyAnimation>
+#include <QQmlContext>
+#include <QQmlEngine>
+#include <QQuickStyle>
+#include <QQuickWidget>
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QTimer>
+#include <QUrl>
 #include <QWheelEvent>
 #include <algorithm>
 #include <cmath>
@@ -24,19 +29,43 @@ CasualPdfView::CasualPdfView(QWidget *parent) : QWidget(parent) {
   setCursor(Qt::IBeamCursor);
 
   // ── Fade-in ao virar página ─────────────────────────────────────────────
+  // Duração reduzida para 80ms — suficiente para suavizar sem delay
+  // perceptível. Se a página já estava em cache (isReady), scheduleFadeIn()
+  // pula o fade e exibe instantaneamente (ver implementação abaixo).
   m_fadeAnim = new QPropertyAnimation(this, "opacity", this);
-  m_fadeAnim->setDuration(200);
+  m_fadeAnim->setDuration(80);
   m_fadeAnim->setEasingCurve(QEasingCurve::OutQuad);
 
-  // ── Spinner de carregamento ─────────────────────────────────────────────
+  // ── Spinner de carregamento com atraso ──────────────────────────────────
+  // O spinner só aparece se o render demorar mais de kSpinnerDelayMs.
+  // Isso evita um flash de spinner em páginas pré-cacheadas ou rápidas.
+  m_spinnerDelayTimer = new QTimer(this);
+  m_spinnerDelayTimer->setSingleShot(true);
+  m_spinnerDelayTimer->setInterval(kSpinnerDelayMs);
+  connect(m_spinnerDelayTimer, &QTimer::timeout, this, [this] {
+    // Só exibe spinner se ainda não temos as páginas
+    const bool leftMissing = !m_leftPx;
+    const bool rightMissing = !m_rightPx && (m_leftPage + 1 < m_pageCount);
+    if (leftMissing || rightMissing) {
+      m_showSpinner = true;
+      m_spinnerTimer->start();
+    }
+  });
+
   m_spinnerTimer = new QTimer(this);
-  m_spinnerTimer->setInterval(40); // 30° a cada 40 ms → 75 rpm
+  m_spinnerTimer->setInterval(14); // ~71 fps — spinner fluido
   connect(m_spinnerTimer, &QTimer::timeout, this, [this] {
-    m_spinnerAngle = (m_spinnerAngle + 30) % 360;
-    if (!m_leftPx || (!m_rightPx && m_leftPage + 1 < m_pageCount))
-      update();
-    else
+    m_spinnerAngle = (m_spinnerAngle + 7) % 360; // 7° por frame = ~500°/s
+    const bool leftDone = m_leftPx.has_value();
+    const bool rightDone =
+        m_rightPx.has_value() || (m_leftPage + 1 >= m_pageCount);
+    if (leftDone && rightDone) {
       m_spinnerTimer->stop();
+      m_showSpinner = false;
+      update();
+    } else {
+      update();
+    }
   });
 
   // ── Camada de texto ─────────────────────────────────────────────────────
@@ -77,6 +106,55 @@ void CasualPdfView::activateDpi() {
 }
 
 void CasualPdfView::deactivateDpi() { m_activeDpi = 0.0; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// setController — liga o CasualModeController ao footer QML.
+//
+// Cria (na primeira chamada) um QQuickWidget filho que hospeda o
+// casual_mode_footer.qml como overlay na parte inferior do view.
+// O mesmo controller já usado pelo CasualModeWidget (EPUB) é reutilizado
+// aqui para PDF — todas as propriedades (progresso, cores, página) já estão
+// sincronizadas pela MainWindow.
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualPdfView::setController(CasualModeController *ctrl) {
+  m_controller = ctrl;
+
+  if (!m_footerWidget) {
+    QQuickStyle::setStyle(QStringLiteral("Basic"));
+
+    m_footerWidget = new QQuickWidget(this);
+    m_footerWidget->setObjectName(QStringLiteral("casualPdfFooter"));
+    // Fundo opaco — transparência via QML (casualCtrl.headerBg já tem a cor)
+    m_footerWidget->setAttribute(Qt::WA_OpaquePaintEvent);
+    m_footerWidget->setAttribute(Qt::WA_NoSystemBackground, false);
+    m_footerWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
+
+    m_footerWidget->rootContext()->setContextProperty(
+        QStringLiteral("casualCtrl"), m_controller);
+
+    m_footerWidget->setSource(QUrl(
+        QStringLiteral("qrc:/LReader/LReader/Casual/casual_mode_footer.qml")));
+  } else {
+    m_footerWidget->rootContext()->setContextProperty(
+        QStringLiteral("casualCtrl"), m_controller);
+  }
+
+  // Posiciona ANTES de show() para que o widget já apareça no lugar certo
+  repositionFooter();
+  m_footerWidget->show();
+  m_footerWidget->raise();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// repositionFooter — posiciona o footer QML na borda inferior do widget.
+// ─────────────────────────────────────────────────────────────────────────────
+void CasualPdfView::repositionFooter() {
+  if (!m_footerWidget)
+    return;
+  m_footerWidget->setGeometry(0, height() - kFooterHeight, width(),
+                              kFooterHeight);
+  m_footerWidget->raise();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // setPageCache
@@ -149,13 +227,31 @@ void CasualPdfView::goToSpread(int leftPage) {
   // Limpa seleção: páginas visíveis mudaram
   m_textLayer->clearSelection();
 
+  // Para timers anteriores
+  m_spinnerTimer->stop();
+  m_spinnerDelayTimer->stop();
+  m_showSpinner = false;
   m_spinnerAngle = 0;
-  m_spinnerTimer->start();
-  update();
 
+  // Tenta obter do cache antes de qualquer coisa
   requestCurrentPages();
+
+  const bool leftReady = m_leftPx.has_value();
+  const bool rightReady =
+      m_rightPx.has_value() || (m_leftPage + 1 >= m_pageCount);
+
+  if (leftReady && rightReady) {
+    // Ambas em cache: exibição instantânea, sem fade nem spinner.
+    m_opacity = 1.0;
+    update();
+  } else {
+    // Cache miss: fade suave + spinner com atraso de kSpinnerDelayMs.
+    scheduleFadeIn();
+    m_spinnerDelayTimer->start();
+    update();
+  }
+
   prefetchAdjacentSpreads();
-  scheduleFadeIn();
   emit spreadChanged(m_leftPage, m_leftPage + 1);
 }
 
@@ -168,17 +264,27 @@ void CasualPdfView::prevSpread() { goToSpread(m_leftPage - 2); }
 void CasualPdfView::requestCurrentPages() {
   if (!m_cache)
     return;
+
   m_leftPx = m_cache->get(m_leftPage);
   m_rightPx = m_leftPage + 1 < m_pageCount ? m_cache->get(m_leftPage + 1)
                                            : std::nullopt;
 
+  // prioritizeRender: máxima prioridade para as páginas atuais.
+  // Diferente de requestRender, não duplica se já in-flight.
   if (!m_leftPx)
-    m_cache->requestRender(m_leftPage);
+    m_cache->prioritizeRender(m_leftPage);
   if (!m_rightPx && m_leftPage + 1 < m_pageCount)
-    m_cache->requestRender(m_leftPage + 1);
+    m_cache->prioritizeRender(m_leftPage + 1);
 
-  if (m_leftPx && (m_rightPx || m_leftPage + 1 >= m_pageCount))
+  // Se as páginas já estavam em cache, para spinner e delay imediatamente.
+  const bool leftDone = m_leftPx.has_value();
+  const bool rightDone =
+      m_rightPx.has_value() || (m_leftPage + 1 >= m_pageCount);
+  if (leftDone && rightDone) {
     m_spinnerTimer->stop();
+    m_spinnerDelayTimer->stop();
+    m_showSpinner = false;
+  }
 
   update();
 }
@@ -186,16 +292,11 @@ void CasualPdfView::requestCurrentPages() {
 void CasualPdfView::prefetchAdjacentSpreads() {
   if (!m_cache)
     return;
-  const int next = m_leftPage + 2;
-  const int prev = m_leftPage - 2;
-  if (next < m_pageCount)
-    m_cache->requestGalleryRender(next);
-  if (next + 1 < m_pageCount)
-    m_cache->requestGalleryRender(next + 1);
-  if (prev >= 0)
-    m_cache->requestGalleryRender(prev);
-  if (prev + 1 >= 0)
-    m_cache->requestGalleryRender(prev + 1);
+  // Delega ao PageCache que agora tem janela expandida (PRE_FORWARD=10,
+  // PRE_BACK=4). onCurrentPageChanged agenda as páginas com prioridade
+  // decrescente por distância, garantindo que as mais próximas sejam
+  // renderizadas primeiro.
+  m_cache->onCurrentPageChanged(m_leftPage);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -211,12 +312,19 @@ void CasualPdfView::onPageReady(int page) {
   } else if (page == m_leftPage + 1) {
     m_rightPx = m_cache->get(page);
     update();
+  } else {
+    return; // página pré-cacheada fora do spread atual — ignora update visual
   }
 
   const bool rightDone =
       m_rightPx.has_value() || (m_leftPage + 1 >= m_pageCount);
-  if (m_leftPx && rightDone)
+  if (m_leftPx && rightDone) {
+    // Ambas prontas: cancela spinner e delay timer
     m_spinnerTimer->stop();
+    m_spinnerDelayTimer->stop();
+    m_showSpinner = false;
+    update(); // garante repaint limpo sem spinner
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -249,12 +357,12 @@ void CasualPdfView::setToolMode(PdfTextLayer::ToolMode mode) {
 // ─────────────────────────────────────────────────────────────────────────────
 QRect CasualPdfView::leftPageRect() const {
   const int half = (width() - kGutterPx) / 2;
-  return QRect(0, 0, half, height());
+  return QRect(0, 0, half, height() - kFooterHeight);
 }
 
 QRect CasualPdfView::rightPageRect() const {
   const int half = (width() - kGutterPx) / 2;
-  return QRect(half + kGutterPx, 0, half, height());
+  return QRect(half + kGutterPx, 0, half, height() - kFooterHeight);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -305,23 +413,34 @@ qreal CasualPdfView::scaleForPage(int i) const {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// drawSpinner — arco girante no centro da área de página (estilo iOS)
-// ─────────────────────────────────────────────────────────────────────────────
+// drawSpinner — arco contínuo girante (estilo iOS / Material) centrado na área
 void CasualPdfView::drawSpinner(QPainter &p, const QRect &area) const {
   const QPoint center = area.center();
-  const int r = 14;
+  const int r = 16;
 
   p.save();
   p.setRenderHint(QPainter::Antialiasing);
   p.translate(center);
-  p.rotate(m_spinnerAngle);
 
-  for (int i = 0; i < 8; ++i) {
-    const int alpha = 40 + (215 / 8) * i;
-    p.setPen(QPen(QColor(0, 0, 0, alpha), 2.5, Qt::SolidLine, Qt::RoundCap));
-    p.drawLine(0, r / 2 + 2, 0, r);
-    p.rotate(45);
-  }
+  // Arco de fundo (pista) — translúcido e fino
+  QPen trackPen(QColor(160, 160, 160, 35), 2.5, Qt::SolidLine, Qt::RoundCap);
+  p.setPen(trackPen);
+  p.drawEllipse(QPoint(0, 0), r, r);
+
+  // Arco animado — 150° com gradiente fade nas pontas
+  const int arcLen = 150 * 16; // unidades de 1/16 de grau
+  const int startAngle = (90 - m_spinnerAngle) * 16;
+
+  // Gradiente conical: transparente → cor → opaco no final
+  QConicalGradient grad(0, 0, 90 - m_spinnerAngle);
+  grad.setColorAt(0.00, QColor(120, 120, 120, 0));
+  grad.setColorAt(0.25, QColor(110, 110, 110, 140));
+  grad.setColorAt(1.00, QColor(100, 100, 100, 230));
+
+  QPen arcPen(QBrush(grad), 2.5, Qt::SolidLine, Qt::RoundCap);
+  p.setPen(arcPen);
+  p.drawArc(QRect(-r, -r, r * 2, r * 2), startAngle, arcLen);
+
   p.restore();
 }
 
@@ -360,7 +479,7 @@ void CasualPdfView::paintEvent(QPaintEvent *) {
         p.drawPixmap(dest, *opt);
       else
         p.drawPixmap(inner, *opt); // fallback se pageSizes não disponível
-    } else if (showSpinner) {
+    } else if (showSpinner && m_showSpinner) {
       drawSpinner(p, inner);
     }
 
@@ -394,12 +513,22 @@ void CasualPdfView::paintEvent(QPaintEvent *) {
 void CasualPdfView::showEvent(QShowEvent *e) {
   activateDpi();
   QWidget::showEvent(e);
+  // Adia um frame para garantir que o widget já tem o tamanho final
+  // atribuído pelo QStackedWidget antes de posicionar o footer.
+  QTimer::singleShot(0, this, [this] {
+    repositionFooter();
+    if (m_footerWidget) {
+      m_footerWidget->show();
+      m_footerWidget->raise();
+    }
+  });
 }
 
 void CasualPdfView::resizeEvent(QResizeEvent *) {
   if (!m_leftPx || (!m_rightPx && m_leftPage + 1 < m_pageCount))
     requestCurrentPages();
   // pageRectForIndex recalcula a cada chamada usando o tamanho atual do widget
+  repositionFooter();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -470,6 +599,14 @@ void CasualPdfView::wheelEvent(QWheelEvent *e) {
 // scheduleFadeIn
 // ─────────────────────────────────────────────────────────────────────────────
 void CasualPdfView::scheduleFadeIn() {
+  // Se as páginas já estão em cache, exibe instantaneamente sem animação —
+  // evita flash desnecessário em navegação de páginas pré-cacheadas.
+  if (m_leftPx.has_value()) {
+    m_fadeAnim->stop();
+    m_opacity = 1.0;
+    update();
+    return;
+  }
   m_fadeAnim->stop();
   m_opacity = 0.0;
   m_fadeAnim->setStartValue(0.0);

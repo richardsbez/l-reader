@@ -82,10 +82,12 @@ void MainWindow::wireScrollSignals() {
 // eventFilter — intercepta eventos de roda para scroll cinético e Ctrl+zoom
 // ─────────────────────────────────────────────────────────────────────────────
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
-  // ── Redimensionamento do dock sidebar — actualiza espaçador da barra
+  // ── Redimensionamento do dock sidebar — actualiza overlays toolbar e barra
   // inferior
-  if (obj == m_sidebar && event->type() == QEvent::Resize)
+  if (obj == m_sidebar && event->type() == QEvent::Resize) {
     updateBottomNavOffset();
+    repositionToolbar();
+  }
 
   // ── Auto-hide das barras em Modo Casual ──────────────────────────────
   // Captura movimentos do rato registados globalmente via
@@ -264,8 +266,10 @@ void MainWindow::onCasualMouseEdge(int localY) {
   if (m_toolbar && m_casualToolbarTimer) {
     const bool inTopZone = (localY >= 0 && localY < kTopZone);
     if (inTopZone) {
-      // Mostra e cancela qualquer contagem regressiva de ocultação
+      // Garante geometria correcta antes de mostrar
+      repositionToolbar();
       m_toolbar->show();
+      m_toolbar->raise();
       m_casualToolbarTimer->stop();
     } else if (m_toolbar->isVisible() && !m_casualToolbarTimer->isActive()) {
       // Mouse saiu da zona; inicia contagem regressiva
@@ -274,7 +278,12 @@ void MainWindow::onCasualMouseEdge(int localY) {
   }
 
   // ── Barra de navegação inferior ──────────────────────────────────────
-  if (m_bottomNav && m_casualBottomNavTimer) {
+  // No modo CasualPdf o footer é o QML overlay do CasualPdfView;
+  // o m_bottomNav nativo fica sempre oculto.
+  const bool isCasualPdf =
+      m_stack &&
+      m_stack->currentIndex() == static_cast<int>(ViewIndex::CasualPdf);
+  if (!isCasualPdf && m_bottomNav && m_casualBottomNavTimer) {
     const bool inBotZone = (localY >= height() - kBotZone);
     if (inBotZone) {
       repositionBottomNav(); // garante geometria correcta antes de mostrar

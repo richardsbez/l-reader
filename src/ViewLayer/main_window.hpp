@@ -222,6 +222,7 @@ private:
   QAction *m_actModeCasual = nullptr;
 
   QToolButton *m_modeDropdown = nullptr;
+  QToolButton *m_viewModeBtn = nullptr; // oculto no Modo Casual
 
   QAction *m_actCasualPrev = nullptr;
   QAction *m_actCasualNext = nullptr;
@@ -279,6 +280,8 @@ private:
                                 // da sidebar
   void repositionBottomNav();   // posiciona o overlay bottomNav (chamado em
                                 // resizeEvent)
+  void repositionToolbar(); // posiciona o overlay toolbar superior (chamado em
+                            // resizeEvent)
 
   // ── TOC helpers (main_window_toc.cpp) ─────────────────────────────────
   void populateTocTree(const QList<TocEntry> &entries);

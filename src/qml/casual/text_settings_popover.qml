@@ -201,12 +201,12 @@ Popup {
         // ── Secção: Tema de Cor ───────────────────────────────────────────────
         SectionLabel { text: "Tema de Cor"; Layout.topMargin: 12 }
 
-        // Grid 2×2 dos quatro temas
+        // Grid de temas — 3 colunas para acomodar o 5.º tema
         GridLayout {
             Layout.fillWidth:  true
             Layout.topMargin:  8
             Layout.bottomMargin: 4
-            columns:     2
+            columns:     3
             rowSpacing:  8
             columnSpacing: 8
 
@@ -240,6 +240,14 @@ Popup {
                 textSwatch: "#657B83"
                 label:      "Solarized"
                 themeIndex: 3
+            }
+
+            // ── Papel Quente ──────────────────────────────────────────────────
+            ThemeButton {
+                bgSwatch:   "#F0E3D2"
+                textSwatch: "#2C1F14"
+                label:      "Papel Quente"
+                themeIndex: 4
             }
         }
     }

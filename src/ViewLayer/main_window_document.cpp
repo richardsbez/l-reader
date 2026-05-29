@@ -184,6 +184,10 @@ void MainWindow::onModeChanged(ModeType newMode, ModeType /*previous*/) {
   if (m_sbMode && m_modeManager)
     m_sbMode->setText(m_modeManager->currentName());
 
+  // Oculta "View Mode" na toolbar ao entrar no Modo Casual
+  if (m_viewModeBtn)
+    m_viewModeBtn->setVisible(newMode != ModeType::Casual);
+
   if (newMode == ModeType::Casual && m_engine) {
     const DocumentType dtype = m_engine->type();
 
@@ -218,6 +222,9 @@ void MainWindow::onModeChanged(ModeType newMode, ModeType /*previous*/) {
                 if (m_sidecar)
                   m_sidecar->savePagePosition(left);
                 setSidebarCasualMode(true);
+                // ── Sincroniza o footer QML com a página atual do spread ──
+                if (m_casualWidget)
+                  m_casualWidget->controller()->setCurrentPage(left);
               });
 
       // ── Wiring de highlights para o spread (espelha PdfCanvasView) ─
@@ -247,8 +254,19 @@ void MainWindow::onModeChanged(ModeType newMode, ModeType /*previous*/) {
                   m_casualPdfView->addHighlight(h);
               });
 
+      // ── Footer QML — configura ANTES de switchView para que o showEvent
+      // já encontre o widget criado e o posicione com o tamanho correto. ──
+      if (m_casualWidget) {
+        m_casualWidget->controller()->setDocument(m_engine.get(), spreadStart);
+        m_casualPdfView->setController(m_casualWidget->controller());
+      }
+
       switchView(ViewIndex::CasualPdf);
       m_casualPdfView->setFocus();
+
+      // Esconde o m_bottomNav nativo — substituído pelo footer QML
+      if (m_bottomNav)
+        m_bottomNav->hide();
 
     } else if (dtype == DocumentType::EPUB || dtype == DocumentType::MOBI) {
       // ── Modo Casual + EPUB → CasualModeWidget (QML) ──────────────
@@ -423,7 +441,13 @@ void MainWindow::wireDocumentSignals() {
 
   // Zoom
   connect(m_actZoomIn, &QAction::triggered, this, [this] {
-    if (m_stack->currentIndex() == static_cast<int>(ViewIndex::Web)) {
+    const int vi = m_stack->currentIndex();
+    if (vi == static_cast<int>(ViewIndex::Casual) && m_casualWidget) {
+      auto *ctrl = m_casualWidget->controller();
+      const int newSize = std::min(ctrl->fontSize() + 1, 32);
+      ctrl->setFontSize(newSize);
+      onZoomChanged(newSize / 17.0); // 17 = tamanho base
+    } else if (vi == static_cast<int>(ViewIndex::Web)) {
       const qreal nz = std::min(m_webView->zoomFactor() + 0.1, 3.0);
       m_webView->setZoomFactor(nz);
       onZoomChanged(nz);
@@ -432,7 +456,13 @@ void MainWindow::wireDocumentSignals() {
     }
   });
   connect(m_actZoomOut, &QAction::triggered, this, [this] {
-    if (m_stack->currentIndex() == static_cast<int>(ViewIndex::Web)) {
+    const int vi = m_stack->currentIndex();
+    if (vi == static_cast<int>(ViewIndex::Casual) && m_casualWidget) {
+      auto *ctrl = m_casualWidget->controller();
+      const int newSize = std::max(ctrl->fontSize() - 1, 10);
+      ctrl->setFontSize(newSize);
+      onZoomChanged(newSize / 17.0);
+    } else if (vi == static_cast<int>(ViewIndex::Web)) {
       const qreal nz = std::max(m_webView->zoomFactor() - 0.1, 0.3);
       m_webView->setZoomFactor(nz);
       onZoomChanged(nz);
@@ -441,7 +471,11 @@ void MainWindow::wireDocumentSignals() {
     }
   });
   connect(m_actZoomReset, &QAction::triggered, this, [this] {
-    if (m_stack->currentIndex() == static_cast<int>(ViewIndex::Web)) {
+    const int vi = m_stack->currentIndex();
+    if (vi == static_cast<int>(ViewIndex::Casual) && m_casualWidget) {
+      m_casualWidget->controller()->setFontSize(17);
+      onZoomChanged(1.0);
+    } else if (vi == static_cast<int>(ViewIndex::Web)) {
       m_webView->setZoomFactor(1.0);
       onZoomChanged(1.0);
     } else {
@@ -527,17 +561,16 @@ void MainWindow::wireDocumentSignals() {
           &CasualModeController::chapterNavigationRequested, this,
           [this](int chapterIndex) { loadEpubChapter(chapterIndex); });
 
-  // Modo Casual — navegação de página pedida pelo QML (PDF: TOC / anotação /
-  // marcador)
+  // Modo Casual — footer QML: botões ‹ › navegam no spread do PDF
+  // (para EPUB, chapterNavigationRequested já trata; para PDF, os botões
+  //  emitem requestPrev/NextChapter que disparam pageNavigationRequested
+  //  via setCurrentPage — conectamos diretamente ao spread aqui)
   connect(m_casualWidget->controller(),
           &CasualModeController::pageNavigationRequested, this,
           [this](int page) {
-            // Move o spread do modo Casual (view principal quando em
-            // ModeType::Casual+PDF)
-            if (m_casualPdfView)
+            if (m_casualPdfView && m_stack->currentIndex() ==
+                                       static_cast<int>(ViewIndex::CasualPdf))
               m_casualPdfView->goToSpread(page);
-            // Sincroniza também o pdfView padrão para que ao sair do Casual
-            // a posição seja mantida
             if (m_pdfView)
               m_pdfView->goToPage(page);
           });
